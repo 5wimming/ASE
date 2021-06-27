@@ -1,0 +1,8 @@
+db.sqlite3
+/ips_txt
+/temp
+/logs
+.idea
+/StrategyModel/migrations/000*.py
+/TaskModel/migrations/000*.py
+/AseModel/migrations/000*.py
