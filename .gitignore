@@ -3,6 +3,6 @@ db.sqlite3
 /temp
 /logs
 .idea
-/StrategyModel/migrations/000*.py
-/TaskModel/migrations/000*.py
-/AseModel/migrations/000*.py
+/StrategyModel/migrations/0*.py
+/TaskModel/migrations/0*.py
+/AseModel/migrations/0*.py
