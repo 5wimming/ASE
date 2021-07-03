@@ -4,13 +4,12 @@ from simpleui.admin import AjaxAdmin
 from django.contrib import admin
 from import_export import resources
 from AseModel.models import ScanPort, ScanVuln, ScanWeb
-from import_export.admin import ImportExportModelAdmin
+from import_export.admin import ImportExportModelAdmin, ExportMixin
 
 
 class ScanPortResource(resources.ModelResource):
     class Meta:
         model = ScanPort
-        export_order = ('ip', 'domain', 'port', 'service_name', 'application', 'version', 'vendor')
 
 
 class ScanPortAdmin(ImportExportModelAdmin, AjaxAdmin):
@@ -30,8 +29,7 @@ class ScanPortAdmin(ImportExportModelAdmin, AjaxAdmin):
 
 class ScanVulnResource(resources.ModelResource):
     class Meta:
-        model = ScanPort
-        export_order = ('ip', 'domain', 'port', 'vuln_desc', 'scan_time', 'scan_task', 'strategy_id')
+        model = ScanVuln
 
 
 class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
@@ -51,20 +49,15 @@ class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
 class ScanWebResource(resources.ModelResource):
     class Meta:
         model = ScanPort
-        export_order = ("target", "port", "title", "headers", "body_size", "body_content", "application", "scan_time", "scan_engine", "scan_task", "strategy_id", "scan_node_id")
 
 
-class ScanWebAdmin(AjaxAdmin, ImportExportModelAdmin):
-    # readonly_fields = ("url", "target", "port", "status", "title", "headers", "body_size", "redirect_url", "body_content", "application", "scan_time", "scan_engine", "scan_task", "strategy_id", "scan_node_id")
-    list_display = ("url", "title", "short_headers", "body_size", "application", "scan_task", "remarks", "scan_time")  # list
+class ScanWebAdmin(ImportExportModelAdmin):
+    list_display = ("url", "title", "short_headers", "body_size", "status", "scan_task", "remarks", "scan_time")  # list
     search_fields = ("target", "port", "title", "headers", "body_content", "application", "scan_time", "scan_task")
     resource_class = ScanWebResource
     list_per_page = 20
 
     def has_add_permission(self, request):
-        return False
-
-    def has_import_permission(self, request):
         return False
 
 

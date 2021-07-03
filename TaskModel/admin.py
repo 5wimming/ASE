@@ -84,7 +84,7 @@ def get_url_info(url):
         return result
     except Exception as e:
         logger.error('code 0625005 - {}'.format(e))
-    return None
+    return {}
 
 
 def fun_version(v1, v2):
@@ -109,12 +109,14 @@ def fun_version(v1, v2):
 
 
 def get_nvd_vuln(vendor, application, version):
+    if not version:
+        return None
     try:
         nvd_cve_values = NvdCve.objects.filter(vendor__icontains=vendor).values('application', 'cve_data_meta',
                                                                                 'version_start_including',
                                                                                 'version_end_including',
                                                                                 'mid_version', 'base_score',
-                                                                                'description_value')
+                                                                                'description_value', 'cpe23uri')
     except Exception as e:
         logger.error('code 0703001 - {}'.format(e))
         return None
@@ -136,7 +138,7 @@ def get_nvd_vuln(vendor, application, version):
                 is_vuln = True
 
         if is_vuln:
-            return {'cve_data_meta': value['cve_data_meta'], 'base_score': value['base_score'],
+            return {'cve_data_meta': application + ' - ' + value['cve_data_meta'], 'base_score': value['base_score'],
                     'description_value': value['description_value'], 'cpe': value['cpe23uri'],
                     'version_start_including': value['version_start_including'],
                     'version_end_including': value['version_end_including'], 'mid_version': value['mid_version']}
@@ -193,7 +195,7 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
                                                             nvd_result['version_end_including'])
 
             vuln_result = {'ip': ip, 'port': port, 'vuln_desc': nvd_result['cve_data_meta'],
-                           'remarks': nvd_version + nvd_result['description_value'],
+                           'remarks': nvd_version + nvd_result['description_value'], 'strategy_id': '',
                            'cpe': nvd_result['cpe'], 'scan_type': 'nvd', "base_score": nvd_result['base_score']}
             vuln_queue.put_nowait(vuln_result)
 

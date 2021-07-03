@@ -49,7 +49,6 @@ def update_from_server(git_url):
 class VulnStrategyResource(resources.ModelResource):
     class Meta:
         model = VulnStrategy
-        export_order = ('strategy_name', 'port', 'service_name', 'application', 'version', 'create_time')
 
 
 def update_poc(git_url):
@@ -81,7 +80,7 @@ def update_poc(git_url):
                 logger.error('code 0625001 - {}'.format(e))
 
 
-class VulnStrategyAdmin(AjaxAdmin, ImportExportModelAdmin):
+class VulnStrategyAdmin(ImportExportModelAdmin, AjaxAdmin):
     list_display = ('strategy_name', 'port', 'service_name', 'application', 'version', 'create_time')  # list
     search_fields = ('strategy_name', 'port', 'service_name', 'application')
     list_filter = ('service_name', 'application', 'create_time')

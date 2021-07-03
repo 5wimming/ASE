@@ -75,5 +75,5 @@ def main(target_info, *args):
 
 
 if __name__ == '__main__':
-    target = {'ip': '127.0.0.1', 'port': '6379', 'service': 'redis', 'application': 'redis'}
+    target = {'ip': '127.0.0.1', 'port': '6379', 'service': 'redis', 'application': 'redis', 'url': ''}
     print(main(target))
