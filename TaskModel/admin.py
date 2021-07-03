@@ -5,7 +5,7 @@ from simpleui.admin import AjaxAdmin
 from import_export import resources
 from TaskModel.models import IpTaskList
 from AseModel.models import ScanPort, ScanVuln, ScanWeb
-from StrategyModel.models import VulnStrategy
+from StrategyModel.models import VulnStrategy, NvdCve
 from import_export.admin import ImportExportModelAdmin
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -63,7 +63,8 @@ def get_url_info(url):
         try:
             soup = BeautifulSoup(r.content.decode("utf-8", "replace"), 'html.parser')
             origin_title = soup.title if soup.title else "none"
-            origin_title = str(urllib.parse.unquote(origin_title, encoding='utf-8')).replace("\n", " ").replace("\r", " ") \
+            origin_title = str(urllib.parse.unquote(origin_title, encoding='utf-8')).replace("\n", " ").replace("\r",
+                                                                                                                " ") \
                 .replace("\t", " ").replace("<title>", " ").replace("</title>", " ").strip()
         except Exception as e:
             logger.error('code 0627003 - {}'.format(e))
@@ -83,6 +84,62 @@ def get_url_info(url):
         return result
     except Exception as e:
         logger.error('code 0625005 - {}'.format(e))
+    return None
+
+
+def fun_version(v1, v2):
+    l_1 = v1.split('.')
+    l_2 = v2.split('.')
+    c = 0
+    while True:
+        try:
+            if c == len(l_1) and c == len(l_2):
+                return True
+            if len(l_1) == c:
+                l_1.append(0)
+            if len(l_2) == c:
+                l_2.append(0)
+            if int(l_1[c]) > int(l_2[c]):
+                return True
+            elif int(l_1[c]) < int(l_2[c]):
+                return False
+            c += 1
+        except Exception as e:
+            return v1 >= v2
+
+
+def get_nvd_vuln(vendor, application, version):
+    try:
+        nvd_cve_values = NvdCve.objects.filter(vendor__icontains=vendor).values('application', 'cve_data_meta',
+                                                                                'version_start_including',
+                                                                                'version_end_including',
+                                                                                'mid_version', 'base_score',
+                                                                                'description_value')
+    except Exception as e:
+        logger.error('code 0703001 - {}'.format(e))
+        return None
+
+    for value in nvd_cve_values:
+        is_vuln = False
+        if value['application'] in application:
+            if version == value['mid_version']:
+                is_vuln = True
+            elif not value['version_end_including'] and not value['version_start_including']:
+                pass
+            elif value['version_end_including'] and value['version_start_including']:
+                if fun_version(version, value['version_end_including']) and fun_version(version,
+                                                                                        value['version_end_including']):
+                    is_vuln = True
+            elif (not value['version_end_including']) and fun_version(value['version_start_including'], version):
+                is_vuln = True
+            elif fun_version(version, value['version_end_including']):
+                is_vuln = True
+
+        if is_vuln:
+            return {'cve_data_meta': value['cve_data_meta'], 'base_score': value['base_score'],
+                    'description_value': value['description_value'], 'cpe': value['cpe23uri'],
+                    'version_start_including': value['version_start_including'],
+                    'version_end_including': value['version_end_including'], 'mid_version': value['mid_version']}
     return None
 
 
@@ -128,14 +185,26 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
         target_info = {'ip': ip, 'port': port, 'service': result['service_name'],
                        'application': result['application'], 'url': url_info.get('url', '')}
 
+        nvd_result = get_nvd_vuln(result['application'], result['application'], result['application'])
+
+        if nvd_result:
+            nvd_version = 'version: {} - {} - {} \n'.format(nvd_result['version_start_including'],
+                                                            nvd_result['mid_version'],
+                                                            nvd_result['version_end_including'])
+
+            vuln_result = {'ip': ip, 'port': port, 'vuln_desc': nvd_result['cve_data_meta'],
+                           'remarks': nvd_version + nvd_result['description_value'],
+                           'cpe': nvd_result['cpe'], 'scan_type': 'nvd', "base_score": nvd_result['base_score']}
+            vuln_queue.put_nowait(vuln_result)
+
         for s in strategies:
             try:
                 strategy_flag = False
                 if any(item.lower() in service_names and item.strip() for item in s['service_name'].split(',')):
                     strategy_flag = True
-                elif any(item.lower() in service_names and item.strip() for item in s['application'].split(',')):
+                if any(item.lower() in service_names and item.strip() for item in s['application'].split(',')):
                     strategy_flag = True
-                elif port in s['port'].split(','):
+                if port in s['port'].split(','):
                     strategy_flag = True
 
                 if strategy_flag:
@@ -148,7 +217,8 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
 
                     if tool_result:
                         vuln_result = {'ip': ip, 'port': port, 'vuln_desc': s['strategy_name'], 'strategy_id': s['id'],
-                                       'remarks': tool_result, 'cpe': s['cpe']}
+                                       'remarks': tool_result, 'cpe': s['cpe'], 'scan_type': 'poc',
+                                       "base_score": s['base_score']}
                         vuln_queue.put_nowait(vuln_result)
 
             except Exception as e:
@@ -209,7 +279,7 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
                 #                                        'remarks': s['remarks'], 'cpe': s['cpe']}
                 save_result = ScanVuln(ip=result['ip'], port=result['port'], vuln_desc=result['vuln_desc'],
                                        strategy_id=result['strategy_id'], remarks=result['remarks'], cpe=result['cpe'],
-                                       scan_task=task_name)
+                                       scan_task=task_name, base_score=result['base_score'], scan_type=result['scan_type'])
                 save_result.save()
             except Exception as e:
                 logging.error('code 0620005 - {} - {}'.format(threading.current_thread().name, e))
@@ -236,7 +306,8 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_key
                     else:
                         continue
 
-                save_result = ScanWeb(url=result['url'], target=result['ip'], port=result['port'], status=result['status'],
+                save_result = ScanWeb(url=result['url'], target=result['ip'], port=result['port'],
+                                      status=result['status'],
                                       title=result['title'], headers=result['headers'],
                                       body_size=result['body_size'], body_content=result['body_content'],
                                       redirect_url=result['redirect_url'], application=result['application'],

@@ -7,7 +7,7 @@ import socket
 
 readme = {'strategy_name': 'redis_unauthorized_access', 'service_name': 'redis',
           'port': '6379', 'application': 'redis', 'proto': 'tcp', 'version': '',
-          'remarks': '', 'cpe': '', 'vendor': ''}
+          'remarks': '', 'cpe': '', 'vendor': '', 'base_score': '9'}
 weakly_passwords = ['redis', 'redis123', 'Redis123', 'redis@123', 'root', 'oracle', 'password', 'p@ssw0rd', 'abc123!',
                     '123456', 'admin', 'abc123', 'admin12', 'admin888', 'admin8', 'admin123', 'sysadmin', 'adminxxx',
                     'adminx', '6kadmin', 'base', 'feitium', 'admins', 'roots', 'test', 'test1', 'test123', 'test2',

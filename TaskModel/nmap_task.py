@@ -41,7 +41,8 @@ def main(target_port, port_type='TCP'):
         result_data['service_name'] = port_type_info.get('name', '')
         result_data['application'] = port_type_info.get('product', '')
         result_data['extra_info'] = port_type_info.get('extrainfo', '')
-        result_data['cpe'] = port_type_info.get('cpe', '')
+        result_data['cpe'] = port_type_info.get('cpe', 'cpe:/n:unknown:unknown')
+        result_data['vendor'] = result_data['cpe'].split(':')[2]
 
         application_temp = result_data['application'].lower()
         if any(item in application_temp for item in white_list):

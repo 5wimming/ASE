@@ -32,6 +32,7 @@ class VulnStrategy(models.Model):
     port = models.CharField(max_length=255, default='1', validators=[port_validator], help_text='eg: 80,8080')
     application = models.CharField(max_length=1022, null=True, blank=True)
     version = models.CharField(max_length=1022, null=True, blank=True)
+    base_score = models.CharField(max_length=255, null=True, blank=True)
     vendor = models.CharField(max_length=1022, null=True, blank=True)
     cpe = models.CharField(max_length=1022, null=True, blank=True)
     remarks = models.CharField(max_length=1022, null=True, blank=True)  # 备注
@@ -47,4 +48,21 @@ class VulnStrategy(models.Model):
     def __str__(self):
         return self.strategy_name
 
+
+class NvdCve(models.Model):
+    vendor = models.CharField(max_length=255, null=True, blank=True)
+    application = models.CharField(max_length=255, null=True, blank=True)
+    cve_data_meta = models.CharField(max_length=255, null=True, blank=True, verbose_name="cve")
+    cpe23uri = models.CharField(max_length=255, null=True, blank=True, verbose_name="cpe")
+    version_start_including = models.CharField(max_length=255, null=True, blank=True)
+    version_end_including = models.CharField(max_length=255, null=True, blank=True)
+    mid_version = models.CharField(max_length=255, null=True, blank=True)
+    base_score = models.CharField(max_length=255, null=True, blank=True)
+    description_value = models.TextField(null=True, blank=True)
+    published_date = models.DateTimeField(null=True, blank=True)
+    last_modified_date = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'CVE Strategy'
+        verbose_name_plural = 'CVE Strategy'
 

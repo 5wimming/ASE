@@ -7,7 +7,7 @@ import requests
 
 readme = {'strategy_name': 'Jenkins rce CVE-2018-1000861', 'service_name': 'http',
           'port': '8080', 'application': 'jenkins', 'proto': 'tcp', 'version': '',
-          'remarks': '', 'cpe': '', 'vendor': ''}
+          'remarks': '', 'cpe': '', 'vendor': '', 'base_score': '9'}
 
 endpoint = 'descriptorByName/org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript/checkScript'
 

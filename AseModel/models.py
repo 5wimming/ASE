@@ -45,13 +45,15 @@ class ScanVuln(models.Model):
     ip = models.CharField(max_length=255, verbose_name="target")
     domain = models.CharField(max_length=1022, null=True, blank=True)
     port = models.CharField(max_length=255, default=0)
-    vuln_desc = models.CharField(max_length=1022, null=True, blank=True)
+    vuln_desc = models.CharField(max_length=1022, null=True, blank=True, verbose_name="vuln name")
     scan_time = models.DateTimeField(auto_now=True, null=True, blank=True)
-    scan_engine = models.CharField(max_length=255, null=True, blank=True)  # 扫描平台
+    scan_engine = models.CharField(max_length=255, null=True, blank=True)
+    scan_type = models.CharField(max_length=255, null=True, blank=True)  # nvd or vuln strategy
+    base_score = models.CharField(max_length=255, null=True, blank=True, verbose_name="score")
     scan_task = models.CharField(max_length=255, null=True, blank=True)
-    strategy_id = models.CharField(max_length=255, null=True, blank=True)  # 策略id
-    scan_node_id = models.CharField(max_length=255, null=True, blank=True)  # 扫描器节点
-    remarks = models.CharField(max_length=1022, null=True, blank=True)  # 备注
+    strategy_id = models.CharField(max_length=255, null=True, blank=True)
+    scan_node_id = models.CharField(max_length=255, null=True, blank=True)
+    remarks = models.CharField(max_length=1022, null=True, blank=True)
     cpe = models.CharField(max_length=1022, null=True, blank=True)
 
     class Meta:

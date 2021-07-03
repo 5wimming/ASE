@@ -35,8 +35,9 @@ class ScanVulnResource(resources.ModelResource):
 
 
 class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
-    list_display = ('ip', 'domain', 'port', 'vuln_desc', 'scan_task', 'strategy_id', 'scan_time')  # list
+    list_display = ('ip', 'port', 'vuln_desc', 'base_score', 'scan_task', 'scan_type', 'scan_time')  # list
     search_fields = ('ip', 'domain', 'port', 'vuln_desc', 'scan_time', 'scan_task')
+    list_filter = ('scan_type',)
     resource_class = ScanVulnResource
     list_per_page = 20
 

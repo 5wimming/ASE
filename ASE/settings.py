@@ -131,7 +131,7 @@ USE_L10N = True
 USE_TZ = True
 
 SIMPLEUI_HOME_TITLE = 'Asset Scan Engine'
-SIMPLEUI_LOGO = '../static/images/logo5.png'
+SIMPLEUI_LOGO = '../../static/images/logo5.png'
 
 
 # Static files (CSS, JavaScript, Images)
@@ -144,6 +144,8 @@ STATICFILES_DIRS = [
 ]
 
 IPS_FILE_PATH = 'ips_txt/'
+NVD_JSON_PATH = 'files/'
+CVE_BASE_SCORE = 6
 
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 if not os.path.exists(TEMP_DIR):
