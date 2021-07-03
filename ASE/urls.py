@@ -16,12 +16,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, re_path, include
 from django.conf.urls.static import static
-from django.views.generic.base import RedirectView
 from . import views
 from . import settings
 
 urlpatterns = [
     path('ase/', admin.site.urls),
-    # re_path(r'^logo5\.png', RedirectView.as_view(url=r'../static/images/logo5.png'))
+    path('', views.front_index),
 
 ] + static(settings.MEDIA_URL, document_root=settings.BASE_DIR)
