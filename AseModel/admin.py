@@ -1,6 +1,5 @@
 import xlwt
 from django.http import StreamingHttpResponse, JsonResponse
-from simpleui.admin import AjaxAdmin
 from django.contrib import admin
 from import_export import resources
 from AseModel.models import ScanPort, ScanVuln, ScanWeb
@@ -12,7 +11,7 @@ class ScanPortResource(resources.ModelResource):
         model = ScanPort
 
 
-class ScanPortAdmin(ImportExportModelAdmin, AjaxAdmin):
+class ScanPortAdmin(ImportExportModelAdmin):
     readonly_fields = ["ip", "domain", "port", "service_name", "application", "version", "vendor", "scan_time", "proto", "scan_engine", "scan_task", "strategy_id", "scan_node_id", "cpe", "state", "extra_info", "hostname"]
     list_display = ('ip', 'port', 'service_name', 'application', 'version', 'remarks', 'scan_time')  # list
     search_fields = ('ip', 'port', 'service_name', 'application', 'remarks')
@@ -32,7 +31,7 @@ class ScanVulnResource(resources.ModelResource):
         model = ScanVuln
 
 
-class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
+class ScanVulnAdmin(ImportExportModelAdmin):
     list_display = ('ip', 'port', 'vuln_desc', 'base_score', 'scan_task', 'scan_type', 'scan_time')  # list
     search_fields = ('ip', 'domain', 'port', 'vuln_desc', 'scan_time', 'scan_task')
     list_filter = ('scan_type',)

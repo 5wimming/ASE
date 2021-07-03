@@ -1,5 +1,4 @@
 from django.http import StreamingHttpResponse, JsonResponse
-from simpleui.admin import AjaxAdmin
 from django.contrib import admin
 from import_export import resources
 from StrategyModel.models import VulnStrategy, NvdCve
@@ -80,7 +79,7 @@ def update_poc(git_url):
                 logger.error('code 0625001 - {}'.format(e))
 
 
-class VulnStrategyAdmin(ImportExportModelAdmin, AjaxAdmin):
+class VulnStrategyAdmin(ImportExportModelAdmin):
     list_display = ('strategy_name', 'port', 'service_name', 'application', 'version', 'create_time')  # list
     search_fields = ('strategy_name', 'port', 'service_name', 'application')
     list_filter = ('service_name', 'application', 'create_time')
@@ -148,7 +147,7 @@ def update_cve_info(url):
             logger.error('code 0702008 - {}'.format(e))
 
 
-class NvdCveAdmin(AjaxAdmin):
+class NvdCveAdmin(ImportExportModelAdmin):
     list_display = ('application', 'vendor', 'cve_data_meta', 'base_score', 'version_start_including', 'version_end_including',
                     'mid_version')  # list
     search_fields = ('application', 'cve_data_meta', 'cpe23uri', 'version_start_including', 'version_end_including',

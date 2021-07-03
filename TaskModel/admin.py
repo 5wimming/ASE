@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 from django.contrib import admin
 from django.http import StreamingHttpResponse, JsonResponse
-from simpleui.admin import AjaxAdmin
 from import_export import resources
 from TaskModel.models import IpTaskList
 from AseModel.models import ScanPort, ScanVuln, ScanWeb
@@ -324,7 +323,6 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_key
 class IpTaskListResource(resources.ModelResource):
     class Meta:
         model = IpTaskList
-        export_order = ('id', 'task_name', 'port', 'create_time', 'status')
 
 
 class IpTaskListForm(forms.ModelForm):
@@ -336,7 +334,7 @@ class IpTaskListForm(forms.ModelForm):
         }
 
 
-class IpTaskListAdmin(ImportExportModelAdmin, AjaxAdmin, forms.ModelForm):
+class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
     list_display = ('id', 'task_name', 'short_port', 'create_time', 'scan_status')  # list
     search_fields = ('id', 'task_name', 'port', 'create_time', 'status')
     fields = (
