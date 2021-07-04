@@ -111,11 +111,10 @@ def get_nvd_vuln(vendor, application, version):
     if not version:
         return None
     try:
-        nvd_cve_values = NvdCve.objects.filter(vendor__icontains=vendor).values('application', 'cve_data_meta',
+        nvd_cve_values = NvdCve.objects.filter(vendor__icontains=vendor).values('application',
                                                                                 'version_start_including',
                                                                                 'version_end_including',
-                                                                                'mid_version', 'base_score',
-                                                                                'description_value', 'cpe23uri')
+                                                                                'mid_version', 'id')
     except Exception as e:
         logger.error('code 0703001 - {}'.format(e))
         return None
@@ -137,32 +136,38 @@ def get_nvd_vuln(vendor, application, version):
                 is_vuln = True
 
         if is_vuln:
-            return {'cve_data_meta': application + ' - ' + value['cve_data_meta'], 'base_score': value['base_score'],
-                    'description_value': value['description_value'], 'cpe': value['cpe23uri'],
+            value2 = NvdCve.objects.filter(pk=value['id']).values('cve_data_meta', 'base_score',
+                                                                  'description_value', 'cpe23uri')[0]
+
+            return {'cve_data_meta': application + ' - ' + value2['cve_data_meta'], 'base_score': value2['base_score'],
+                    'description_value': value2['description_value'], 'cpe': value2['cpe23uri'],
                     'version_start_including': value['version_start_including'],
                     'version_end_including': value['version_end_including'], 'mid_version': value['mid_version']}
     return None
 
 
-def thread_process_func(task_queue, result_queue, task_proto, task_key, strategies, vuln_queue, web_queue):
+def thread_process_func(task_queue, result_queue, task_proto, task_key, strategies, vuln_queue, web_queue, task_ip, task_port):
     while True:
         try:
             try:
                 target = task_queue.get_nowait()
+                ip = task_ip[target[0]]
+                port = task_port[target[1]]
+                ip_port = '{}:{}'.format(ip, port)
             except queue.Empty:
                 logger.info('{} Task done'.format(threading.current_thread().name))
                 result_queue.put_nowait('Task done')
                 vuln_queue.put_nowait('Task done')
                 web_queue.put_nowait('Task done')
                 break
+
             if 'end' in scanning_task[task_key][0] or 'suspend' in scanning_task[task_key][0]:
-                logger.info('{} - [{}] - {}'.format('end or suspend', task_queue.qsize(), target))
+                logger.info('{} - [{}] - {}'.format('end or suspend', task_queue.qsize(), ip_port))
                 continue
 
-            ip, port = target.split(':')
-            scanning_task[task_key][1] = port
-            logger.info('{} - [{}] - {}'.format(threading.current_thread().name, task_queue.qsize(), target))
-            result = nmap_task.main(target, port_type=task_proto)
+            scanning_task[task_key][1] = target[1]
+            logger.info('{} - [{}] - {}'.format(threading.current_thread().name, task_queue.qsize(), ip_port))
+            result = nmap_task.main(ip_port, port_type=task_proto)
             if result:
                 result_queue.put_nowait(result)
             else:
@@ -174,9 +179,9 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
 
         url_info = {}
         if 'http' in service_names:
-            url_info = get_url_info('https://' + ip + ':' + port + '/')
+            url_info = get_url_info('http://' + ip_port + '/')
             if not url_info:
-                url_info = get_url_info('http://' + ip + ':' + port + '/')
+                url_info = get_url_info('https://' + ip_port + '/')
 
         if url_info:
             url_info['ip'] = ip
@@ -209,7 +214,7 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
                     strategy_flag = True
 
                 if strategy_flag:
-                    logger.info('{} - {}'.format(s['strategy_name'], target))
+                    logger.info('{} - {}'.format(s['strategy_name'], ip_port))
 
                     strategy_module = s['file'].strip().split('.')[0].replace('/', '.').replace('\\', '.')
                     strategy_tool = importlib.import_module(strategy_module)
@@ -280,7 +285,8 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
                 #                                        'remarks': s['remarks'], 'cpe': s['cpe']}
                 save_result = ScanVuln(ip=result['ip'], port=result['port'], vuln_desc=result['vuln_desc'],
                                        strategy_id=result['strategy_id'], remarks=result['remarks'], cpe=result['cpe'],
-                                       scan_task=task_name, base_score=result['base_score'], scan_type=result['scan_type'])
+                                       scan_task=task_name, base_score=result['base_score'],
+                                       scan_type=result['scan_type'])
                 save_result.save()
             except Exception as e:
                 logging.error('code 0620005 - {} - {}'.format(threading.current_thread().name, e))
@@ -405,30 +411,31 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             task_port.sort()
 
             if task_key not in scanning_task or scanning_task[task_key][2] != i['create_time']:
-                scanning_task[task_key] = ['start', task_port[0], i['create_time']]
+                scanning_task[task_key] = ['start', 0, i['create_time'], False]
             elif 'suspend' in scanning_task[task_key][0]:
                 scanning_task[task_key][0] = 'start'
+                scanning_task[task_key][3] = False
                 time.sleep(10)
             else:
-                scanning_task[task_key] = ['start', task_port[0], i['create_time']]
+                scanning_task[task_key] = ['start', 0, i['create_time'], False]
                 time.sleep(10)
 
             task_queue = queue.Queue()
             result_queue = queue.Queue()
             vuln_queue = queue.Queue()
             web_queue = queue.Queue()
-            scanning_task[task_key].append(False)
 
-            port_index = task_port.index(scanning_task[task_key][1])
-            for port in task_port[port_index:]:
-                for ip in task_ip:
-                    task_queue.put_nowait(ip + ':' + port)
+            port_index = scanning_task[task_key][1]
+            task_ip_nums = range(len(task_ip))
+            for port_i in range(port_index, len(task_port)):
+                for ip_i in task_ip_nums:
+                    task_queue.put_nowait((ip_i, port_i))
 
             thread_list = list()
             for x in range(task_threads_count):
                 thread = threading.Thread(target=thread_process_func, args=(task_queue, result_queue, task_proto,
                                                                             task_key, strategies, vuln_queue,
-                                                                            web_queue))
+                                                                            web_queue, task_ip, task_port))
                 thread.start()
                 thread_list.append(thread)
 
@@ -482,10 +489,11 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             if 'finished' in i['status'] or 'not scanned' in i['status'] or 'suspend' in i['status']:
                 continue
             if task_key not in scanning_task:
-                scanning_task[task_key] = ['end', '', i['create_time']]
+                scanning_task[task_key] = ['end', 0, i['create_time'], False]
             else:
                 scanning_task[task_key][0] = 'suspend'
                 scanning_task[task_key][2] = i['create_time']
+                scanning_task[task_key][3] = False
 
             queryset.filter(id=i['id']).update(status='suspend')
 
@@ -503,10 +511,11 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             if 'finished' in i['status'] or 'not scanned' in i['status']:
                 continue
             if task_key not in scanning_task:
-                scanning_task[task_key] = ['end', '', i['create_time']]
+                scanning_task[task_key] = ['end', 0, i['create_time'], False]
             else:
                 scanning_task[task_key][0] = 'end'
                 scanning_task[task_key][2] = i['create_time']
+                scanning_task[task_key][3] = False
 
             queryset.filter(id=i['id']).update(status='finished')
 
