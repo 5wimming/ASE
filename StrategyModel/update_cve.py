@@ -123,7 +123,18 @@ def get_new_nvd(url, file_path):
 def main(url, sql_dict):
     file_path = os.path.join(settings.BASE_DIR, settings.NVD_JSON_PATH)
     get_new_nvd(url, file_path)
-    get_cve_info(get_file_info(file_path), sql_dict)
+
+    try:
+        file_json_result = get_file_info(file_path)
+    except Exception as e:
+        logger.error('code 0704001 - {}'.format(e))
+        return cve_results
+
+    try:
+        get_cve_info(file_json_result, sql_dict)
+    except Exception as e:
+        logger.error('code 0704003 - {}'.format(e))
+        return cve_results
 
     logger.info('get {} cpe'.format(len(cve_results)))
 
