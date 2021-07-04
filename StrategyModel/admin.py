@@ -134,18 +134,7 @@ def update_cve_info(url):
         sql_dict[sql_value['cve_data_meta'] + sql_value['version_start_including'] +
                  sql_value['version_end_including'] + sql_value['mid_version']] = 1
 
-    cve_results = update_cve.main(url, sql_dict)
-    logger.info('insert cve into mysql')
-    for cve_result in cve_results:
-        try:
-            save_result = NvdCve(vendor=cve_result[0], application=cve_result[1], cve_data_meta=cve_result[2],
-                                 cpe23uri=cve_result[3], version_start_including=cve_result[4],
-                                 version_end_including=cve_result[5], mid_version=cve_result[6],
-                                 base_score=cve_result[7], description_value=cve_result[8],
-                                 published_date=cve_result[9], last_modified_date=cve_result[10])
-            save_result.save()
-        except Exception as e:
-            logger.error('code 0702008 - {}'.format(e))
+    update_cve.main(url, sql_dict)
 
 
 class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmin):

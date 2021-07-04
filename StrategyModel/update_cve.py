@@ -8,14 +8,14 @@ import os
 import csv
 import requests
 from ASE import settings
+from StrategyModel.models import NvdCve
 import logging
 
-cve_results = []
-dup_results = {}
+# cve_results = []
 logger = logging.getLogger("mdjango")
 
 
-def get_file_info(filepath):
+def get_file_info(filepath, sql_dict):
     if not filepath.endswith('/'):
         filepath += '/'
     result = []
@@ -35,14 +35,16 @@ def get_file_info(filepath):
             try:
                 with open(filepath + filename, 'r', encoding='utf-8') as fr:
                     cve_json = json.load(fr)
-                result.append(cve_json)
+
+                if cve_json:
+                    get_cve_info(cve_json, sql_dict)
             except Exception as e:
                 logger.error('code 0701003 - {}'.format(e))
     logger.info('find {} cve json'.format(len(result)))
     return result
 
 
-def get_child(node, cve_data_meta, description_value, base_score, published_date, last_modified_date, sql_dict):
+def get_child(node, cve_data_meta, description_value, base_score, published_date, last_modified_date, sql_dict, cve_results):
     cpe_match = node.get('cpe_match', [])
     for cpe_dict in cpe_match:
         cpe23uri = cpe_dict.get('cpe23Uri', '')
@@ -66,32 +68,50 @@ def get_child(node, cve_data_meta, description_value, base_score, published_date
 
     children = node.get('children', [])
     for child in children:
-        get_child(child, cve_data_meta, description_value, base_score, published_date, last_modified_date, sql_dict)
+        try:
+            get_child(child, cve_data_meta, description_value, base_score, published_date, last_modified_date, sql_dict, cve_results)
+        except Exception as e:
+            logger.error('code 0704018 - {}'.format(e))
 
 
-def get_cve_info(input_data, sql_dict):
-    for cve_data in input_data:
-        logger.info('get cve info')
-        for cve_item in cve_data['CVE_Items']:
+def get_cve_info(cve_data, sql_dict):
+    logger.info('get cve info')
+    cve_results = []
+    for cve_item in cve_data['CVE_Items']:
+        try:
+            cve_info = cve_item['cve']
+            cve_data_meta = cve_info['CVE_data_meta'].get('ID')
+            description_value = cve_info.get('description', {}).get('description_data', [{}])[0].get('value', '')
+            impact = cve_item.get('impact', {})
+            cvss = impact.get('baseMetricV3', impact.get('baseMetricV2', {}))
+            base_score = cvss.get('cvssV3', cvss.get('cvssV2', {})).get('baseScore', -1)
+            published_date = cve_item.get('publishedDate', '')
+            last_modified_date = cve_item.get('lastModifiedDate', '')
+            nodes = cve_item['configurations']['nodes']
+
+            if int(base_score) < settings.CVE_BASE_SCORE:
+                continue
+
+            for node in nodes:
+                get_child(node, cve_data_meta, description_value, base_score, published_date, last_modified_date,
+                          sql_dict, cve_results)
+
+        except Exception as e:
+            logger.error('[error] : {} - {}'.format(e, cve_item))
+    if cve_results:
+        logger.info('insert cve into mysql')
+        for cve_result in cve_results:
             try:
-                cve_info = cve_item['cve']
-                cve_data_meta = cve_info['CVE_data_meta'].get('ID')
-                description_value = cve_info.get('description', {}).get('description_data', [{}])[0].get('value', '')
-                impact = cve_item.get('impact', {})
-                cvss = impact.get('baseMetricV3', impact.get('baseMetricV2', {}))
-                base_score = cvss.get('cvssV3', cvss.get('cvssV2', {})).get('baseScore', -1)
-                published_date = cve_item.get('publishedDate', '')
-                last_modified_date = cve_item.get('lastModifiedDate', '')
-                nodes = cve_item['configurations']['nodes']
-
-                if int(base_score) < settings.CVE_BASE_SCORE:
-                    continue
-
-                for node in nodes:
-                    get_child(node, cve_data_meta, description_value, base_score, published_date, last_modified_date, sql_dict)
-
+                save_result = NvdCve(vendor=cve_result[0], application=cve_result[1], cve_data_meta=cve_result[2],
+                                     cpe23uri=cve_result[3], version_start_including=cve_result[4],
+                                     version_end_including=cve_result[5], mid_version=cve_result[6],
+                                     base_score=cve_result[7], description_value=cve_result[8],
+                                     published_date=cve_result[9], last_modified_date=cve_result[10])
+                save_result.save()
             except Exception as e:
-                logger.error('[error] : {} - {}'.format(e, cve_item))
+                logger.error('code 0702008 - {}'.format(e))
+
+        logger.info('get {} cpe'.format(len(cve_results)))
 
 
 def output_data():
@@ -101,7 +121,7 @@ def output_data():
     with open('./result.csv', 'w', encoding='utf-8', newline='') as fw:
         csv_w = csv.writer(fw)
         csv_w.writerow(data_title)
-        csv_w.writerow(cve_results)
+        # csv_w.writerow(cve_results)
 
 
 def get_new_nvd(url, file_path):
@@ -125,20 +145,9 @@ def main(url, sql_dict):
     get_new_nvd(url, file_path)
 
     try:
-        file_json_result = get_file_info(file_path)
+        get_file_info(file_path, sql_dict)
     except Exception as e:
         logger.error('code 0704001 - {}'.format(e))
-        return cve_results
-
-    try:
-        get_cve_info(file_json_result, sql_dict)
-    except Exception as e:
-        logger.error('code 0704003 - {}'.format(e))
-        return cve_results
-
-    logger.info('get {} cpe'.format(len(cve_results)))
-
-    return cve_results
 
 
 if __name__ == '__main__':
