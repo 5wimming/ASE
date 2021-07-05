@@ -13,6 +13,7 @@ import json
 from . import update_cve
 
 logger = logging.getLogger("mdjango")
+update_nvd_status = {'nvd_updating': False}
 
 
 def update_from_server(git_url):
@@ -152,7 +153,6 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
         return False
 
     actions = ['layer_update_cve', 'delete_all_cve']
-    update_nvd_status = False
 
     def layer_update_cve(self, request, queryset):
         nvd_url = request.POST['name']
@@ -162,20 +162,20 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
                 'msg': 'nvd url is illegal'
             })
 
-        if self.update_nvd_status:
+        if update_nvd_status['nvd_updating']:
             return JsonResponse(data={
                 'status': 'success',
                 'msg': 'Please wait a moment, updating now'
             })
 
-        self.update_nvd_status = True
+        update_nvd_status['nvd_updating'] = True
 
         try:
             update_cve_info(nvd_url)
         except Exception as e:
             logger.error('code 07020010 - {}'.format(e))
         finally:
-            self.update_nvd_status = False
+            update_nvd_status['nvd_updating'] = False
 
         return JsonResponse(data={
             'status': 'success',
