@@ -108,6 +108,7 @@ class VulnStrategyAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, Aj
 
         try:
             conn_redis.set('poc_update', 'True')
+            conn_redis.expire('poc_update', 18000)
             update_poc(git_url)
         except Exception as e:
             logger.error('code 07100001 - {}'.format(e))
@@ -185,6 +186,7 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
             })
 
         conn_redis.set('nvd_update', 'True')
+        conn_redis.expire('nvd_update', 18000)
 
         try:
             update_cve_info(nvd_url)
@@ -224,6 +226,7 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
         if input_name == 'delete all' and conn_redis.get('delete_all') != b'True':
             try:
                 conn_redis.set('delete_all', 'True')
+                conn_redis.expire('delete_all', 18000)
                 NvdCve.objects.all().delete()
                 return JsonResponse(data={
                     'status': 'success',
