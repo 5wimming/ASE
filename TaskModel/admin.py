@@ -7,6 +7,7 @@ from AseModel.models import ScanPort, ScanVuln, ScanWeb
 from StrategyModel.models import VulnStrategy, NvdCve
 from import_export.admin import ImportExportModelAdmin
 from bs4 import BeautifulSoup
+from django_redis import get_redis_connection
 import urllib.parse
 import threading
 import queue
@@ -18,9 +19,11 @@ import time
 from ASE import settings
 from . import nmap_task
 import StrategyTools
+from django_redis import get_redis_connection
 import importlib
 import requests
 import IPy
+from .redis_task import RedisController
 
 logger = logging.getLogger("mdjango")
 scanning_task = {}
@@ -146,8 +149,9 @@ def get_nvd_vuln(vendor, application, version):
     return None
 
 
-def thread_process_func(task_queue, result_queue, task_proto, task_key, strategies, vuln_queue, web_queue, task_ip, task_port):
-    while True:
+def thread_process_func(task_queue, result_queue, task_proto, task_key, strategies, vuln_queue,
+                        web_queue, task_ip, task_port, conn_redis):
+    for i_scan in range(65535000000):
         try:
             try:
                 target = task_queue.get_nowait()
@@ -161,11 +165,16 @@ def thread_process_func(task_queue, result_queue, task_proto, task_key, strategi
                 web_queue.put_nowait('Task done')
                 break
 
-            if 'end' in scanning_task[task_key][0] or 'suspend' in scanning_task[task_key][0]:
-                logger.info('{} - [{}] - {}'.format('end or suspend', task_queue.qsize(), ip_port))
-                continue
+            if i_scan % 8 == 0:
+                conn_redis_status = conn_redis.get_status()
+                conn_redis.set_port(target[1])
+                if 'end' in conn_redis_status or 'suspend' in conn_redis_status:
+                    logger.info('{} - [{}] - {}'.format('end or suspend', task_queue.qsize(), ip_port))
+                    result_queue.put_nowait('Task done')
+                    vuln_queue.put_nowait('Task done')
+                    web_queue.put_nowait('Task done')
+                    break
 
-            scanning_task[task_key][1] = target[1]
             logger.info('{} - [{}] - {}'.format(threading.current_thread().name, task_queue.qsize(), ip_port))
             result = nmap_task.main(ip_port, port_type=task_proto)
             if result:
@@ -236,15 +245,14 @@ def thread_port_result(result_queue, task_threads_count, task_name, task_proto, 
     thread_done_total = 0
     result_total = 0
     try:
-
-        while True:
+        for i_scan in range(65535000000):
             try:
                 result = result_queue.get()
                 result_total += 1
 
                 if result == 'Task done':
                     thread_done_total += 1
-                    if thread_done_total == task_threads_count or scanning_task[task_key][3]:
+                    if thread_done_total == task_threads_count:
                         logger.info('{} - ports end saving'.format(task_name))
                         break
                     else:
@@ -269,14 +277,14 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
     result_total = 0
     try:
 
-        while True:
+        for i_scan in range(65535000000):
             try:
                 result = result_queue.get()
                 result_total += 1
 
                 if result == 'Task done':
                     thread_done_total += 1
-                    if thread_done_total == task_threads_count or scanning_task[task_key][3]:
+                    if thread_done_total == task_threads_count:
                         logger.info('{} - vulns end saving'.format(task_name))
                         break
                     else:
@@ -299,15 +307,14 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_key
     thread_done_total = 0
     result_total = 0
     try:
-
-        while True:
+        for i_scan in range(65535000000):
             try:
                 result = result_queue.get()
                 result_total += 1
 
                 if result == 'Task done':
                     thread_done_total += 1
-                    if thread_done_total == task_threads_count or scanning_task[task_key][3]:
+                    if thread_done_total == task_threads_count:
                         logger.info('{} - web end saving'.format(task_name))
                         break
                     else:
@@ -367,7 +374,6 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             if 'running' in i['status']:
                 continue
             queryset.filter(id=i['id']).update(status='running')
-            task_key = str(i['id'])
             task_port = []
             ports = i['port'].replace('\r', ',').replace('\n', ',').replace(';', ',').replace(',,', ',').split(',')
             for port in ports:
@@ -410,22 +416,21 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             task_port = list(set(task_port))
             task_port.sort()
 
-            if task_key not in scanning_task or scanning_task[task_key][2] != i['create_time']:
-                scanning_task[task_key] = ['start', 0, i['create_time'], False]
-            elif 'suspend' in scanning_task[task_key][0]:
-                scanning_task[task_key][0] = 'start'
-                scanning_task[task_key][3] = False
-                time.sleep(10)
+            task_key = str(i['id'])
+            conn_redis = RedisController(task_key)
+
+            if conn_redis.get_status() == 'suspend' and conn_redis.get_time() == str(i['create_time']):
+                conn_redis.set_status('running')
             else:
-                scanning_task[task_key] = ['start', 0, i['create_time'], False]
-                time.sleep(10)
+                conn_redis.init_conn('running', 0, i['create_time'])
+            time.sleep(10)
 
             task_queue = queue.Queue()
             result_queue = queue.Queue()
             vuln_queue = queue.Queue()
             web_queue = queue.Queue()
 
-            port_index = scanning_task[task_key][1]
+            port_index = int(conn_redis.get_port())
             task_ip_nums = range(len(task_ip))
             for port_i in range(port_index, len(task_port)):
                 for ip_i in task_ip_nums:
@@ -435,7 +440,7 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             for x in range(task_threads_count):
                 thread = threading.Thread(target=thread_process_func, args=(task_queue, result_queue, task_proto,
                                                                             task_key, strategies, vuln_queue,
-                                                                            web_queue, task_ip, task_port))
+                                                                            web_queue, task_ip, task_port, conn_redis))
                 thread.start()
                 thread_list.append(thread)
 
@@ -462,14 +467,13 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
             for thread in thread_list:
                 thread.join()
 
-            scanning_task[task_key][3] = True
-            time.sleep(1)
+            time.sleep(3)
 
             port_result_thread.join()
             vuln_result_thread.join()
             web_info_result_thread.join()
 
-            if 'suspend' not in scanning_task[task_key][0] and 'end' not in scanning_task[task_key][0]:
+            if 'suspend' not in conn_redis.get_status():
                 queryset.filter(id=i['id']).update(status='finished')
 
             logger.info('{} - end running'.format(i['task_name']))
@@ -486,14 +490,16 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
     def suspend_scan(self, request, queryset):
         for i in queryset.values():
             task_key = str(i['id'])
+            conn_redis = RedisController(task_key)
+
             if 'finished' in i['status'] or 'not scanned' in i['status'] or 'suspend' in i['status']:
                 continue
-            if task_key not in scanning_task:
-                scanning_task[task_key] = ['end', 0, i['create_time'], False]
+
+            if 'running' in conn_redis.get_status():
+                conn_redis.set_status('suspend')
+                conn_redis.set_time(i['create_time'])
             else:
-                scanning_task[task_key][0] = 'suspend'
-                scanning_task[task_key][2] = i['create_time']
-                scanning_task[task_key][3] = False
+                conn_redis.init_conn('end', 0, i['create_time'])
 
             queryset.filter(id=i['id']).update(status='suspend')
 
@@ -508,14 +514,11 @@ class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
     def end_scan(self, request, queryset):
         for i in queryset.values():
             task_key = str(i['id'])
+            conn_redis = RedisController(task_key)
             if 'finished' in i['status'] or 'not scanned' in i['status']:
                 continue
-            if task_key not in scanning_task:
-                scanning_task[task_key] = ['end', 0, i['create_time'], False]
-            else:
-                scanning_task[task_key][0] = 'end'
-                scanning_task[task_key][2] = i['create_time']
-                scanning_task[task_key][3] = False
+
+            conn_redis.init_conn('end', 0, i['create_time'])
 
             queryset.filter(id=i['id']).update(status='finished')
 

@@ -4,6 +4,7 @@ from import_export import resources
 from StrategyModel.models import VulnStrategy, NvdCve
 from import_export.admin import ImportExportModelAdmin, ImportExportActionModelAdmin
 from simpleui.admin import AjaxAdmin
+from django_redis import get_redis_connection
 from ASE import settings
 import logging
 import os
@@ -13,7 +14,7 @@ import json
 from . import update_cve
 
 logger = logging.getLogger("mdjango")
-update_nvd_status = {'nvd_updating': False}
+conn_redis = get_redis_connection('default')
 
 
 def update_from_server(git_url):
@@ -73,7 +74,8 @@ def update_poc(git_url):
                 save_result = VulnStrategy(strategy_name=readme['strategy_name'], service_name=readme['service_name'],
                                            port=readme['port'], application=readme['application'],
                                            version=readme['version'], proto=readme['proto'], vendor=readme['vendor'],
-                                           cpe=readme['cpe'], remarks=readme['remarks'], base_score=readme['base_score'],
+                                           cpe=readme['cpe'], remarks=readme['remarks'],
+                                           base_score=readme['base_score'],
                                            file=settings.STRATEGY_TOOLS_PATH + file_name)
                 save_result.save()
                 logger.info('add strategy: {}'.format(strategy_tool.readme))
@@ -91,19 +93,31 @@ class VulnStrategyAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, Aj
     actions = ['layer_update_poc']
 
     def layer_update_poc(self, request, queryset):
+
         git_url = request.POST['name']
         if not git_url.startswith('https://api.github.com/repos'):
             return JsonResponse(data={
                 'status': 'error',
                 'msg': 'url is illegal'
             })
+        if conn_redis.get('poc_update') == b'True':
+            return JsonResponse(data={
+                'status': 'success',
+                'msg': 'Please wait a moment, updating...'
+            })
 
-        update_poc(git_url)
+        try:
+            conn_redis.set('poc_update', 'True')
+            update_poc(git_url)
+        except Exception as e:
+            logger.error('code 07100001 - {}'.format(e))
+        finally:
+            conn_redis.set('poc_update', 'False')
 
         return JsonResponse(data={
-                'status': 'success',
-                'msg': 'update success'
-            })
+            'status': 'success',
+            'msg': 'update success'
+        })
 
     layer_update_poc.short_description = 'update poc'
     layer_update_poc.type = 'success'
@@ -139,8 +153,9 @@ def update_cve_info(url):
 
 
 class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmin):
-    list_display = ('application', 'vendor', 'cve_data_meta', 'base_score', 'version_start_including', 'version_end_including',
-                    'mid_version')  # list
+    list_display = (
+        'application', 'vendor', 'cve_data_meta', 'base_score', 'version_start_including', 'version_end_including',
+        'mid_version')  # list
     search_fields = ('application', 'cve_data_meta', 'cpe23uri', 'version_start_including', 'version_end_including',
                      'mid_version')
     list_filter = ('base_score',)
@@ -155,6 +170,7 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
     actions = ['layer_update_cve', 'delete_all_cve']
 
     def layer_update_cve(self, request, queryset):
+
         nvd_url = request.POST['name']
         if not nvd_url.startswith('https://nvd.nist.gov/feeds/json/'):
             return JsonResponse(data={
@@ -162,20 +178,20 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
                 'msg': 'nvd url is illegal'
             })
 
-        if update_nvd_status['nvd_updating']:
+        if conn_redis.get('nvd_update') == b'True':
             return JsonResponse(data={
                 'status': 'success',
-                'msg': 'Please wait a moment, updating now'
+                'msg': 'Please wait a moment, updating...'
             })
 
-        update_nvd_status['nvd_updating'] = True
+        conn_redis.set('nvd_update', 'True')
 
         try:
             update_cve_info(nvd_url)
         except Exception as e:
             logger.error('code 07020010 - {}'.format(e))
         finally:
-            update_nvd_status['nvd_updating'] = False
+            conn_redis.set('nvd_update', 'False')
 
         return JsonResponse(data={
             'status': 'success',
@@ -204,25 +220,24 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
 
     def delete_all_cve(self, request, queryset):
         input_name = request.POST['name']
-        delete_flag = False
-        if input_name == 'delete all':
+
+        if input_name == 'delete all' and conn_redis.get('delete_all') != b'True':
             try:
+                conn_redis.set('delete_all', 'True')
                 NvdCve.objects.all().delete()
-                delete_flag = True
+                return JsonResponse(data={
+                    'status': 'success',
+                    'msg': ' successfully deleted'
+                })
             except Exception as e:
                 logger.error('code 0702011 - {}'.format(e))
+            finally:
+                conn_redis.set('delete_all', 'False')
 
-        if delete_flag:
-            logger.info('deleted all nvd data')
-            return JsonResponse(data={
-                'status': 'success',
-                'msg': ' successfully deleted'
-            })
-        else:
-            return JsonResponse(data={
-                'status': 'error',
-                'msg': ' delete error'
-            })
+        return JsonResponse(data={
+            'status': 'error',
+            'msg': ' delete error'
+        })
 
     delete_all_cve.short_description = 'delete all'
     delete_all_cve.type = 'update'
