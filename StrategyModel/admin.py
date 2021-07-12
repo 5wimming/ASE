@@ -222,13 +222,13 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
 
     def delete_all_cve(self, request, queryset):
         input_name = request.POST['name']
-        conn_redis.set('nvd_update', 'False')
-        conn_redis.expire('nvd_update', 1800)
-        conn_redis.set('poc_update', 'False')
-        conn_redis.expire('poc_update', 1800)
 
         if input_name == 'delete all' and conn_redis.get('delete_all') != b'True':
             try:
+                conn_redis.set('nvd_update', 'False')
+                conn_redis.expire('nvd_update', 1800)
+                conn_redis.set('poc_update', 'False')
+                conn_redis.expire('poc_update', 1800)
                 conn_redis.set('delete_all', 'True')
                 conn_redis.expire('delete_all', 18000)
                 NvdCve.objects.all().delete()
