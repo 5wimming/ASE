@@ -41,8 +41,11 @@ nvd更新接口
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210712223648805.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
 ### 扫描结果
 有三种结果，端口扫描结果、漏洞结果、web信息结果
-![在这里插入图片描述](https://img-blog.csdnimg.cn/2021071222390556.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20210713004600508.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
 
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20210713004537607.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/2021071222390556.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
 
 
 ## docker安装
@@ -116,13 +119,17 @@ python3 -m pip install Django django-simpleui --upgrade
 create database ase_data default charset=utf8;
 ```
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210623220358326.png)
+
 创建表结构
+
 ```
 python3 manage.py makemigrations
 python3 manage.py migrate
 ```
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210623220504386.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
+
 创建超级用户
+
 
 ```bash
 python3 manage.py createsuperuser
@@ -135,6 +142,7 @@ python3 manage.py createsuperuser
 ```
 
 开启项目
+
 ```java
 python3 manage.py runserver 0.0.0.0:8080 --insecure
 ```
