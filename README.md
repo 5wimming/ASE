@@ -1,6 +1,5 @@
 # ASE
 
-@[toc]
 相信很多安全人员，经常会写一些验证性POC，而这些好东西用完经常就被放在了某个角落，想再用的时候又要翻半天，一直希望有一个比较好的开源扫描平台可以存放这些东西，供自己或者大家直接使用。
 
 ASE是我利用下班、放假时间，前后花了一个多月写出来的，也许并不复杂，主要是经常晚上加班累了，回来就不想写了，再加上一点都不会前端，因此断断续续写了一个多月。
@@ -120,13 +119,17 @@ python3 -m pip install Django django-simpleui --upgrade
 create database ase_data default charset=utf8;
 ```
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210623220358326.png)
+
 创建表结构
+
 ```
 python3 manage.py makemigrations
 python3 manage.py migrate
 ```
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210623220504386.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
+
 创建超级用户
+
 
 ```bash
 python3 manage.py createsuperuser
@@ -139,6 +142,7 @@ python3 manage.py createsuperuser
 ```
 
 开启项目
+
 ```java
 python3 manage.py runserver 0.0.0.0:8080 --insecure
 ```
