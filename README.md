@@ -27,6 +27,9 @@ ASE是开源的，扫描的漏洞策略是可自行定制添加的；并且提�
 - 小型实验室
 
 ### 界面
+
+首页地址：http://127.0.0.1:58088/ase
+
 任务界面
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210712005807571.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MTAxMzY0,size_16,color_FFFFFF,t_70)
 ## ASE的使用
@@ -49,6 +52,9 @@ nvd更新接口
 
 
 ## docker安装
+
+首页地址：http://127.0.0.1:58088/ase
+
 
 [docker地址](https://registry.hub.docker.com/repository/docker/new6ee/ase)
 
@@ -73,10 +79,6 @@ docker-compose up -d
 [github](https://github.com/5wimming/ASE)
 
 ### mysql安装
-
-#### win10
-
-win10安装教程：https://www.cnblogs.com/xiaokang01/p/12092160.html
 
 #### linux
 
