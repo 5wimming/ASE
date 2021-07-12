@@ -30,12 +30,12 @@ def update_from_server(git_url):
         for file_name in os.listdir(tools_path):
             local_file_names.append(file_name.strip())
 
-        r = requests.get(git_url, headers=request_headers, verify=False, timeout=1000)
+        r = requests.get(git_url, headers=request_headers, verify=False, timeout=100)
         git_json = json.loads(r.text)
         for git_info in git_json:
             if git_info['name'] not in local_file_names:
                 try:
-                    r_poc = requests.get(git_info['download_url'], headers=request_headers, verify=False, timeout=1000)
+                    r_poc = requests.get(git_info['download_url'], headers=request_headers, verify=False, timeout=100)
                     with open(tools_path + git_info['name'], "wb") as code:
                         code.write(r_poc.content)
                 except Exception as e:
@@ -222,6 +222,10 @@ class NvdCveAdmin(ImportExportActionModelAdmin, ImportExportModelAdmin, AjaxAdmi
 
     def delete_all_cve(self, request, queryset):
         input_name = request.POST['name']
+        conn_redis.set('nvd_update', 'False')
+        conn_redis.expire('nvd_update', 1800)
+        conn_redis.set('poc_update', 'False')
+        conn_redis.expire('poc_update', 1800)
 
         if input_name == 'delete all' and conn_redis.get('delete_all') != b'True':
             try:

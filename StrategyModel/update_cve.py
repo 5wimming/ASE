@@ -132,7 +132,7 @@ def get_new_nvd(url, file_path):
         'Connection': 'close'
     }
     try:
-        r = requests.get(url, headers=request_headers, verify=False, timeout=1000)
+        r = requests.get(url, headers=request_headers, verify=False, timeout=100)
         with open(file_path + url.split('/')[-1], "wb") as code:
             code.write(r.content)
         logger.info('download nvd success - {}'.format(url))
