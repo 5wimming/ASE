@@ -157,7 +157,8 @@ python3 manage.py runserver 0.0.0.0:8080 --insecure
 | name     | blog                                                         |
 | -------- | ------------------------------------------------------------ |
 | 5wimming | [github](https://github.com/5wimming/), [blog](https://blog.csdn.net/qq_34101364/) |
-| 小烦     | 无                                                           |
+| 小烦     |                                                              |
+| weinull  | [GitHub](https://github.com/weinull)                         |
 |          |                                                              |
 
 ## 扫描策略贡献者
@@ -169,7 +170,6 @@ python3 manage.py runserver 0.0.0.0:8080 --insecure
 | 5wimming | [github](https://github.com/5wimming/), [blog](https://blog.csdn.net/qq_34101364/) |
 |          |                                                              |
 
-# 
 
 ## 申明
 ASE只可用于做个人资产的安全排查，切勿他用，否则后果自负
