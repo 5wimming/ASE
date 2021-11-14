@@ -14,6 +14,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 import os
 import logging
+import djcelery
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     # 'multi_captcha_admin',  # 1 验证码需要顺序
     'django.contrib.admin',  # 2
     # 'captcha',  # 3
+    'djcelery',
 ]
 
 # 验证码配置
@@ -103,7 +105,7 @@ DATABASES = {
         {
             'ENGINE': 'django.db.backends.mysql',  # 数据库引擎
             'NAME': 'ase_data',  # 数据库名称
-            'HOST': '127.0.0.1',  # 数据库地址，本机 ip 地址 127.0.0.1
+            'HOST': 'localhost',  # 数据库地址，本机 ip 地址 127.0.0.1
             'PORT': 3306,  # 端口
             'USER': 'root',  # 数据库用户名
             'PASSWORD': '123456',  # 数据库密码
@@ -201,7 +203,6 @@ LOGGING = {
             'filters': ['require_debug_true'],
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
-
         },
         'file_handler': {
             'level': 'DEBUG',
@@ -240,3 +241,16 @@ SIMPLEUI_INDEX = '/ase'
 STRATEGY_TOOLS_PATH = 'StrategyTools/'
 SIMPLEUI_HOME_INFO = False
 SIMPLEUI_ANALYSIS = False
+
+# celery配置
+beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"
+broker_url = 'amqp://asemq:Ase.mq.005@127.0.0.1:5672/ase'
+result_backend = 'amqp://asemq:Ase.mq.005@127.0.0.1:5672/ase'
+
+# 可接受的内容格式
+accept_content = ["json"]
+# 任务序列化数据格式
+task_serializer = "json"
+# 结果序列化数据格式
+result_serializer = "json"
+task_soft_time_limit = 60 * 60 * 720
