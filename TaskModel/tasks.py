@@ -1,49 +1,27 @@
 # -*- coding:utf-8 -*-
-from django.contrib import admin
-from django.http import StreamingHttpResponse, JsonResponse
-from import_export import resources
-from TaskModel.models import IpTaskList
-from AseModel.models import ScanPort, ScanVuln, ScanWeb
-from StrategyModel.models import VulnStrategy, NvdCve
-from import_export.admin import ImportExportModelAdmin
-from bs4 import BeautifulSoup
+from __future__ import absolute_import, unicode_literals
+from celery import shared_task
 from django_redis import get_redis_connection
-import urllib.parse
-import threading
+from AseModel.models import ScanPort, ScanVuln, ScanWeb
+import logging
+from StrategyModel.models import VulnStrategy, NvdCve
+from TaskModel.models import IpTaskList
+from ASE import settings
+import time
+import os
+import IPy
 import queue
 import random
-from django import forms
-import logging
-import os
-import time
-from ASE import settings
-from . import nmap_task
-from . import tasks
+import urllib.parse
+import threading
 import importlib
 import requests
-import IPy
+from . import nmap_task
 from .redis_task import RedisController
+from bs4 import BeautifulSoup
+
 
 logger = logging.getLogger("mdjango")
-scanning_task = {}
-
-
-def get_ip(ips):
-    result = []
-    try:
-        result = IPy.IP(ips)
-    except Exception as e:
-        logger.error('code 0615001 - {}'.format(e))
-
-        if '-' in ips:
-            temp_ip = ips.split('-')
-            try:
-                sub_ip = temp_ip[0][0:temp_ip[0].rfind('.')]
-                for ip in range(int(temp_ip[0].split('.')[-1]), int(temp_ip[-1].split('.')[-1]) + 1):
-                    result.append(sub_ip + '.' + str(ip))
-            except Exception as e:
-                logger.error('code 0615002 - {}'.format(e))
-    return result
 
 
 def get_url_info(url):
@@ -246,7 +224,7 @@ def thread_port_result(result_queue, task_threads_count, task_name, task_proto, 
     try:
         for i_scan in range(65535000000):
             try:
-                result = result_queue.get()
+                result = result_queue.get(timeout=86400)  # one day
                 result_total += 1
 
                 if result == 'Task done':
@@ -264,10 +242,19 @@ def thread_port_result(result_queue, task_threads_count, task_name, task_proto, 
                                        remarks=result['remarks'], hostname=result['hostname'], proto=task_proto,
                                        state=result['state'])
                 save_result.save()
+            except queue.Empty as e:
+                logging.error('{} --- {} --- {}'.format(e,
+                                                        e.__traceback__.tb_lineno,
+                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
+                break
             except Exception as e:
-                logging.error('code 0620003 - {} - {}'.format(threading.current_thread().name, e))
+                logging.error('{} --- {} --- {}'.format(e,
+                                                        e.__traceback__.tb_lineno,
+                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
     except Exception as e:
-        logging.error('code 0620004 - {} - {}'.format(threading.current_thread().name, e))
+        logging.error('{} --- {} --- {}'.format(e,
+                                                e.__traceback__.tb_lineno,
+                                                e.__traceback__.tb_frame.f_globals["__file__"]))
 
 
 def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
@@ -278,7 +265,7 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
 
         for i_scan in range(65535000000):
             try:
-                result = result_queue.get()
+                result = result_queue.get(timeout=86400)
                 result_total += 1
 
                 if result == 'Task done':
@@ -288,13 +275,17 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
                         break
                     else:
                         continue
-                # vuln_result = {'ip': ip, 'port': port, 'vuln_desc': s['strategy_name'], 'strategy_id': s['id'],
-                #                                        'remarks': s['remarks'], 'cpe': s['cpe']}
+
                 save_result = ScanVuln(ip=result['ip'], port=result['port'], vuln_desc=result['vuln_desc'],
                                        strategy_id=result['strategy_id'], remarks=result['remarks'], cpe=result['cpe'],
                                        scan_task=task_name, base_score=result['base_score'],
                                        scan_type=result['scan_type'])
                 save_result.save()
+            except queue.Empty as e:
+                logging.error('{} --- {} --- {}'.format(e,
+                                                        e.__traceback__.tb_lineno,
+                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
+                break
             except Exception as e:
                 logging.error('code 0620005 - {} - {}'.format(threading.current_thread().name, e))
     except Exception as e:
@@ -308,7 +299,7 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_key
     try:
         for i_scan in range(65535000000):
             try:
-                result = result_queue.get()
+                result = result_queue.get(timeout=86400)
                 result_total += 1
 
                 if result == 'Task done':
@@ -326,98 +317,165 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_key
                                       redirect_url=result['redirect_url'], application=result['application'],
                                       scan_task=task_name)
                 save_result.save()
+            except queue.Empty as e:
+                logging.error('{} --- {} --- {}'.format(e,
+                                                        e.__traceback__.tb_lineno,
+                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
+                break
             except Exception as e:
-                logging.error('code 0627005 - {} - {}'.format(threading.current_thread().name, e))
+                logging.error('{} --- {} --- {}'.format(e,
+                                                        e.__traceback__.tb_lineno,
+                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
     except Exception as e:
-        logging.error('code 0627006 - {} - {}'.format(threading.current_thread().name, e))
+        logging.error('{} --- {} --- {}'.format(e,
+                                                e.__traceback__.tb_lineno,
+                                                e.__traceback__.tb_frame.f_globals["__file__"]))
 
 
-class IpTaskListResource(resources.ModelResource):
-    class Meta:
-        model = IpTaskList
+def get_ip(ips):
+    result = []
+    try:
+        result = IPy.IP(ips)
+    except Exception as e:
+        logger.error('code 0615001 - {}'.format(e))
+
+        if '-' in ips:
+            temp_ip = ips.split('-')
+            try:
+                sub_ip = temp_ip[0][0:temp_ip[0].rfind('.')]
+                for ip in range(int(temp_ip[0].split('.')[-1]), int(temp_ip[-1].split('.')[-1]) + 1):
+                    result.append(sub_ip + '.' + str(ip))
+            except Exception as e:
+                logger.error('code 0615002 - {} - {}'.format(e, e.__traceback__.tb_lineno))
+    return result
 
 
-class IpTaskListForm(forms.ModelForm):
-    class Meta:
-        model = IpTaskList
-        fields = ('ips_text',)
-        widgets = {
-            'ips_text': forms.Textarea(attrs={'cols': 40, 'rows': 20}),
-        }
+@shared_task
+def start_port_scan(task_query):
+    """扫描任务开始
 
+    开始ip端口的扫描任务
 
-class IpTaskListAdmin(ImportExportModelAdmin, forms.ModelForm):
-    list_display = ('id', 'task_name', 'short_port', 'create_time', 'scan_status')  # list
-    search_fields = ('id', 'task_name', 'port', 'create_time', 'status')
-    fields = (
-        'task_name', ('ips_text', 'ips_file'), 'proto', 'port', 'threads_count', 'ip_task_strategy_name', 'remarks')
-    resource_class = IpTaskListResource
-    ordering = ("-create_time",)
-    form = IpTaskListForm
-    filter_horizontal = ('ip_task_strategy_name',)
+    Args:
+        task_query: 单个扫描任务.
 
-    # add buttons
-    actions = ['start_scan', 'suspend_scan', 'end_scan']
+    Returns:
+        无
 
-    def start_scan(self, request, queryset):
-        for i in queryset.values():
-            if 'running' in i['status']:
-                continue
-            queryset.filter(id=i['id']).update(status='running')
-            logger.info('------- get -------- strategies1')
-            tasks.start_port_scan.delay(i)
+    Raises:
+        IOError: An error occurred accessing the bigtable.Table object.
+    """
+    logger.info('------- get -------- strategies2')
+    queryset = IpTaskList.objects.filter(id=task_query['id'])
+    strategies = []
+    try:
+        for s in queryset.filter(id=task_query['id']).first().ip_task_strategy_name.all().values():
+            strategies.append(s)
+        logger.info('{} get {} strategies'.format(task_query['task_name'], len(strategies)))
+    except Exception as e:
+        logger.error('code 0620001 - {}'.format(e))
 
-    start_scan.short_description = ' start scan'
-    # icon，https://fontawesome.com
-    start_scan.icon = 'far fa-play-circle'
-    # https://element.eleme.cn/#/zh-CN/component/button
-    start_scan.type = 'success'
-    start_scan.style = 'color:black;'
-    start_scan.confirm = 'start scan ?'
+    task_port = []
+    ports = task_query['port'].replace('\r', ',').replace('\n', ',').replace(';', ',').replace(',,', ',').split(',')
+    for port in ports:
+        if port:
+            port_ab = port.split('-')
+            port_len = len(port_ab)
+            if port_len == 1:
+                task_port.append(port_ab[0])
+            if port_len == 2 and port_ab[1] != '':
+                for j in range(int(port_ab[0]), int(port_ab[1])):
+                    task_port.append(str(j))
+                task_port.append(port_ab[1])
+    task_ip = []
+    ips_text = task_query['ips_text']
+    ips_file = task_query['ips_file']
 
-    def suspend_scan(self, request, queryset):
-        for i in queryset.values():
-            task_key = str(i['id'])
-            conn_redis = RedisController(task_key)
+    if ips_file:
+        try:
+            with open(os.path.join(settings.BASE_DIR, ips_file), 'r') as fr:
+                ips_temp = fr.readlines()
+            for ip in ips_temp:
+                task_ip.append(ip.strip())
+        except Exception as e:
+            queryset.update(status='File parsing error')
+            logger.error('code 0614 - {}'.format(e))
+    ips_text = ips_text.replace('\r', ',').replace('\n', ',').replace(';', ',')
 
-            if 'finished' in i['status'] or 'not scanned' in i['status'] or 'suspend' in i['status']:
-                continue
-
-            if 'running' in conn_redis.get_status():
-                conn_redis.set_status('suspend')
-                conn_redis.set_time(i['create_time'])
+    for ip in ips_text.split(','):
+        if ip:
+            if '-' in ip or '/' in ip:
+                for ip_temp in get_ip(ip):
+                    task_ip.append(str(ip_temp))
             else:
-                conn_redis.init_conn('end', 0, i['create_time'])
+                task_ip.append(ip.strip())
 
-            queryset.filter(id=i['id']).update(status='suspend')
+    task_proto = task_query['proto']
+    task_threads_count = task_query['threads_count']
+    task_ip = list(set(task_ip))
+    random.shuffle(task_ip)
+    task_port = list(set(task_port))
+    task_port.sort()
 
-    suspend_scan.short_description = ' suspend scan'
-    # icon，https://fontawesome.com
-    suspend_scan.icon = 'fas fa-arrow-circle-right'
-    # https://element.eleme.cn/#/zh-CN/component/button
-    suspend_scan.type = 'success'
-    suspend_scan.style = 'color:black;'
-    suspend_scan.confirm = 'suspend scan ?'
+    task_key = str(task_query['id'])
+    conn_redis = RedisController(task_key)
 
-    def end_scan(self, request, queryset):
-        for i in queryset.values():
-            logger.info('------- get -------- strategies')
-            task_key = str(i['id'])
-            conn_redis = RedisController(task_key)
-            if 'finished' in i['status'] or 'not scanned' in i['status']:
-                continue
+    if conn_redis.get_status() == 'suspend' and conn_redis.get_time() == str(task_query['create_time']):
+        conn_redis.set_status('running')
+    else:
+        conn_redis.init_conn('running', 0, task_query['create_time'])
 
-            conn_redis.init_conn('end', 0, i['create_time'])
+    time.sleep(3)
 
-            queryset.filter(id=i['id']).update(status='finished')
+    task_queue = queue.Queue()
+    result_queue = queue.Queue()
+    vuln_queue = queue.Queue()
+    web_queue = queue.Queue()
 
-    end_scan.short_description = ' end scan'
-    # icon，https://fontawesome.com
-    end_scan.icon = 'far fa-stop-circle'
-    # https://element.eleme.cn/#/zh-CN/component/button
-    end_scan.type = 'success'
-    end_scan.style = 'color:black;'
-    end_scan.confirm = 'end scan ?'
+    port_index = int(conn_redis.get_port())
+    task_ip_nums = range(len(task_ip))
+    for port_i in range(port_index, len(task_port)):
+        for ip_i in task_ip_nums:
+            task_queue.put_nowait((ip_i, port_i))
 
+    thread_list = list()
+    for x in range(task_threads_count):
+        thread = threading.Thread(target=thread_process_func, args=(task_queue, result_queue, task_proto,
+                                                                    task_key, strategies, vuln_queue,
+                                                                    web_queue, task_ip, task_port, conn_redis))
+        thread.start()
+        thread_list.append(thread)
 
-admin.site.register(IpTaskList, IpTaskListAdmin)
+    logger.info('{} - saving'.format(task_query['task_name']))
+    port_result_thread = threading.Thread(target=thread_port_result, args=(result_queue, task_threads_count,
+                                                                           task_query['task_name'], task_proto,
+                                                                           task_key),
+                                          name='port result thread')
+    port_result_thread.start()
+
+    vuln_result_thread = threading.Thread(target=thread_vuln_result, args=(vuln_queue, task_threads_count,
+                                                                           task_query['task_name'], task_key),
+                                          name='vuln result thread')
+    vuln_result_thread.start()
+
+    web_info_result_thread = threading.Thread(target=thread_web_info_result,
+                                              args=(web_queue, task_threads_count,
+                                                    task_query['task_name'], task_key),
+                                              name='vuln result thread')
+    web_info_result_thread.start()
+
+    logger.info('{} - start running'.format(task_query['task_name']))
+
+    for thread in thread_list:
+        thread.join()
+
+    time.sleep(3)
+
+    port_result_thread.join()
+    vuln_result_thread.join()
+    web_info_result_thread.join()
+
+    if 'suspend' not in conn_redis.get_status():
+        queryset.filter(id=task_query['id']).update(status='finished')
+
+    logger.info('{} - end running'.format(task_query['task_name']))
