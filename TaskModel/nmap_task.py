@@ -16,7 +16,6 @@ def main(target_port, port_type='TCP'):
     nmap_scan = nmap.PortScanner()
     nmap_args = '-sS -sV -sU -Pn --max-retries 3 --min-rtt-timeout 500ms --max-rtt-timeout 3000ms'
     nmap_args += ' --initial-rtt-timeout 500ms --defeat-rst-ratelimit --min-rate 10000 --max-rate 15000'
-    nmap_args = '-sT -sV -Pn'  # mac专属
 
     try:
         target = target.replace('"', '')

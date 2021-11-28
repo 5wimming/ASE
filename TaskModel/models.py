@@ -48,15 +48,17 @@ class IpTaskList(models.Model):
                                    max_upload_size=5242880, null=True, blank=True)
     create_time = models.DateTimeField(auto_now=True, null=True, blank=True)
     proto = models.CharField(validators=[proto_validator], max_length=255, default='TCP', null=True, blank=True, help_text='eg: TCP,UDP')  # 传输层协议
-    port = models.CharField(max_length=2046, default='0', validators=[port_validator], help_text='eg: 80,22,1-33')
+    port = models.CharField(max_length=2046, default='80,443', validators=[port_validator], help_text='eg: 80,22,1-33')
     threads_count = models.IntegerField(u'线程数', default=1, validators=[MinValueValidator(1), MaxValueValidator(100)])
     remarks = models.CharField(max_length=1022, null=True, blank=True)  # 备注
     status = models.CharField(max_length=255, default='not scanned', null=True, blank=True, editable=False)
+    progress = models.CharField(max_length=255, default='', null=True, blank=True, editable=False)
     ip_task_strategy_name = models.ManyToManyField('StrategyModel.VulnStrategy', blank=True, verbose_name="strategy")
 
     def scan_status(self):
         if self.status == 'running':
-            format_td = format_html('<span style="padding:2px;background-color:#409EFF;color:white">Running</span>')
+            format_td = format_html('<span style="padding:2px;background-color:#409EFF;color:white">{}</span>'
+                                    .format(self.progress))
         elif self.status == 'finished':
             format_td = format_html('<span style="padding:2px;background-color:green;color:black">finished</span>')
         elif self.status == 'suspend':
@@ -66,7 +68,8 @@ class IpTaskList(models.Model):
         elif self.status == 'failed':
             format_td = format_html('<span style="padding:2px;background-color:yellow;color:black">Failed</span>')
         else:
-            format_td = format_html('<span style="padding:2px;background-color:red;color:black">' + self.status + '</span>')
+            format_td = format_html('<span style="padding:2px;background-color:red;color:black">{}</span>'
+                                    .format(self.status))
         return format_td
 
     scan_status.short_description = "status"

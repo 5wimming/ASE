@@ -34,7 +34,7 @@ class RedisController:
     
     def get_port(self):
         key = self.task_key + 'port'
-        return bytes.decode(self.conn_redis[key]) if self.conn_redis.exists(key) else 'none'
+        return bytes.decode(self.conn_redis[key]) if self.conn_redis.exists(key) else '0'
     
     def get_time(self):
         key = self.task_key + 'time'
