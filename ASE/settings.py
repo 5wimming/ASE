@@ -170,7 +170,7 @@ STATICFILES_DIRS = [
 
 IPS_FILE_PATH = 'ips_txt/'
 NVD_JSON_PATH = 'files/'
-CVE_BASE_SCORE = 6
+CVE_BASE_SCORE = 7.5
 
 TEMP_DIR = os.path.join(BASE_DIR, "temp")
 if not os.path.exists(TEMP_DIR):
