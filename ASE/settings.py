@@ -241,6 +241,7 @@ SIMPLEUI_INDEX = '/ase'
 STRATEGY_TOOLS_PATH = 'StrategyTools/'
 SIMPLEUI_HOME_INFO = False
 SIMPLEUI_ANALYSIS = False
+SUBTASK_NUM = 5000
 
 # celery配置
 beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"
