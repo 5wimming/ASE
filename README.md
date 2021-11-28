@@ -9,6 +9,8 @@ ASE(Asset Scan Engine)是一个简单的基于BS的主机、域名扫描器，�
 ASE是开源的，扫描的漏洞策略是可自行定制添加的；并且提供了nvd漏洞库的自动更新接口，使得在没有漏洞策略的情况下，通过版本匹配相应漏洞。
 
 相对于nexpose、nessus等这类庞大的扫描器，我希望ASE未来只收纳几十到几百种高危可远程利用的扫描策略，诸如命令注入、反序列化、任意文件上传下载等这类可远程利用的漏洞。
+
+ASE目前采用masscan+nmap的端口扫描模式，在尽量保障准确性的同时加快扫描速度
 ### ASE主要功能
 1、发现开放端口的服务，如协议、应用、版本等
 
@@ -95,6 +97,11 @@ Ase5scan.
 sudo apt-get install redis-server
 ```
 
+### 安装masscan
+```shell
+apt install masscan
+```
+
 ### 依赖库安装
 
 ```
@@ -106,6 +113,7 @@ python3 -m pip install python-nmap
 python3 -m pip install beautifulsoup4
 python3 -m pip install requests
 python3 -m pip install django-redis
+python3 -m pip install python-masscan
 
 python3 -m pip Django==3.2.4 mysqlclient django-simpleui IPy django-import-export python-nmap beautifulsoup4 requests
 # 更新命令，没事别更新，会有不兼容的情况出现
