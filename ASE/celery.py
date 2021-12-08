@@ -8,7 +8,7 @@ from django.conf import settings
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ASE.settings')
 
-app = Celery('ASE', broker='amqp://asemq:Ase.mq.005@127.0.0.1:5672/ase')
+app = Celery('ASE', backend='redis://127.0.0.1:6379/0',  broker='redis://127.0.0.1:6379/0')  # amqp://asemq:Ase.mq.005 @127.0.0.1:5672/ase
 
 # 指定从django的settings.py里读取celery配置
 app.config_from_object('django.conf:settings')

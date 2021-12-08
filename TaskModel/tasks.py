@@ -419,7 +419,7 @@ def ip_port_survival_scan(targets, conn_redis, ports_str):
     """ip端口存活判断
 
     ip存活判断
-
+t
     Args:
         targets: ip数组.
         conn_redis: redis连接器
@@ -428,7 +428,7 @@ def ip_port_survival_scan(targets, conn_redis, ports_str):
     Returns:
         无
     """
-    my_scan = IpMasscan('--wait 20 --rate 10000')
+    my_scan = IpMasscan('--wait 60 --rate 8000')
     result_ip = []
     result_port = []
     mas_ips = []
@@ -440,13 +440,14 @@ def ip_port_survival_scan(targets, conn_redis, ports_str):
     for ips in mas_ips:
         if 'running' not in conn_redis.get_status():
             return result_ip, result_port
-
+        logger.info('all task masscan content: [{}] --- [{}]'.format(ips, ports_str))
         scan_ip, scan_port = my_scan.ip_scan(ips, ports_str)
+        logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
         result_ip += scan_ip
         result_port += scan_port
 
         for ip in ips:
-            if ip not in scan_ip and ping(ip):
+            if ip not in scan_ip and ping(ip, timeout=2):
                 result_ip.append(ip)
 
     return result_ip, result_port

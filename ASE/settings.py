@@ -14,7 +14,6 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 import os
 import logging
-import djcelery
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-40#$#^#=(zhj6h=ugw4u#k^a0gie(k3q(t5z=6)+&lv#uyy=g1'
 
-# SECURITY WARNING: don't run with debug turned on in production!
+# prod False; beta True
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
@@ -47,7 +46,7 @@ INSTALLED_APPS = [
     # 'multi_captcha_admin',  # 1 验证码需要顺序
     'django.contrib.admin',  # 2
     # 'captcha',  # 3
-    'djcelery',
+    # 'djcelery',
 ]
 
 # 验证码配置
@@ -108,7 +107,7 @@ DATABASES = {
             'HOST': 'localhost',  # 数据库地址，本机 ip 地址 127.0.0.1
             'PORT': 3306,  # 端口
             'USER': 'root',  # 数据库用户名
-            'PASSWORD': '123456',  # 数据库密码
+            'PASSWORD': 'Ase5scan.',  # prod Ase5scan. ; beta 123456
         }
 }
 
@@ -245,8 +244,8 @@ SUBTASK_NUM = 5000
 
 # celery配置
 beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"
-broker_url = 'amqp://asemq:Ase.mq.005@127.0.0.1:5672/ase'
-result_backend = 'amqp://asemq:Ase.mq.005@127.0.0.1:5672/ase'
+broker_url = 'redis://127.0.0.1:6379/0'  # amqp://asemq:Ase.mq.005 @127.0.0.1:5672/ase
+result_backend = 'redis://127.0.0.1:6379/0'  # amqp://asemq:Ase.mq.005 @127.0.0.1:5672/ase
 
 # 可接受的内容格式
 accept_content = ["json"]

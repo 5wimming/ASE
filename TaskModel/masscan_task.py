@@ -8,6 +8,9 @@
 import random
 import time
 import masscan
+import logging
+
+logger = logging.getLogger("mdjango")
 
 
 class IpMasscan:
@@ -53,7 +56,9 @@ class IpMasscan:
                                                     arguments=self.masscan_args)
                     break
                 except Exception as e:
-                    print(e)
+                    logger.error('{} --- {} --- {}'.format(e,
+                                                           e.__traceback__.tb_lineno,
+                                                           e.__traceback__.tb_frame.f_globals["__file__"]))
                 finally:
                     pass
 
@@ -83,7 +88,6 @@ class IpMasscan:
                 '5900,8080,8081,9101,9080,18080,28080,37111,37112,37113,37114,37115,37116,37117,37118,37119'
         if ports_str:
             ports = ports_str
-        ports_num = ports.count(',')
         result_ip = set()
         result_port = set()
         for i in range(2):
@@ -93,6 +97,7 @@ class IpMasscan:
                                                 arguments=self.masscan_args)
                 scan_ips = scan_result.get('scan', {})
                 for ip, value in scan_ips.items():
+                    logger.info('subtask masscan result: [{}] --- [{}]'.format(ip, value))
                     value_dict = value.get('tcp', {})
                     if len(value_dict.items()) > 1024:
                         continue
@@ -103,7 +108,9 @@ class IpMasscan:
 
                     time.sleep(0.2)
             except Exception as e:
-                print(e)
+                logger.error('{} --- {} --- {}'.format(e,
+                                                       e.__traceback__.tb_lineno,
+                                                       e.__traceback__.tb_frame.f_globals["__file__"]))
             finally:
                 pass
 
@@ -112,6 +119,7 @@ class IpMasscan:
 
 if __name__ == '__main__':
     my_scan = IpMasscan('--wait 15 --rate 10000')
-    print(my_scan.ip_scan('129.204.131.185,129.204.131.237,129.204.131.245,129.204.131.99,129.204.131.117,129.204.131.158,129.204.131.166,129.204.131.102,129.204.131.28,129.204.131.233,129.204.131.80,129.204.131.37,129.204.131.231,129.204.131.210,129.204.131.69,129.204.131.44,129.204.131.167,129.204.131.54,129.204.131.160,129.204.131.144,129.204.131.151,129.204.131.182,129.204.131.107,129.204.131.82,129.204.131.170,129.204.131.206,129.204.131.201,129.204.131.73,129.204.131.141,129.204.131.154,129.204.131.11'.split(','),
-                          '1-1024,1080,1433,1434,1723,3128,3389,4750,900,8080,8081,9101,9080'))
-
+    print(my_scan.ip_scan(
+        '129.204.131.185,129.204.131.237,129.204.131.245,129.204.131.99,129.204.131.117,129.204.131.158,129.204.131.166,129.204.131.102,129.204.131.28,129.204.131.233,129.204.131.80,129.204.131.37,129.204.131.231,129.204.131.210,129.204.131.69,129.204.131.44,129.204.131.167,129.204.131.54,129.204.131.160,129.204.131.144,129.204.131.151,129.204.131.182,129.204.131.107,129.204.131.82,129.204.131.170,129.204.131.206,129.204.131.201,129.204.131.73,129.204.131.141,129.204.131.154,129.204.131.11'.split(
+            ','),
+        '1-1024,1080,1433,1434,1723,3128,3389,4750,900,8080,8081,9101,9080'))
