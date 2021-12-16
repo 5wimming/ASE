@@ -99,14 +99,15 @@ class IpMasscan:
                 for ip, value in scan_ips.items():
                     logger.info('subtask masscan result: [{}] --- [{}]'.format(ip, value))
                     value_dict = value.get('tcp', {})
-                    if len(value_dict.items()) > 1024:
+                    if len(value_dict.items()) > 50:
                         continue
 
                     result_ip.add(ip)
                     for port_temp in value_dict.keys():
                         result_port.add(port_temp)
 
-                    time.sleep(0.2)
+                time.sleep(1)
+                random.shuffle(targets)
             except Exception as e:
                 logger.error('{} --- {} --- {}'.format(e,
                                                        e.__traceback__.tb_lineno,

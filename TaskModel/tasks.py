@@ -415,6 +415,29 @@ def start_port_scan(task_query):
     logger.info('{} - end running'.format(task_query['task_name']))
 
 
+def get_ports(ports_str, port_len=100):
+    scan_ports = ports_str.split(',')
+    result_ports = []
+    for ports in scan_ports:
+        if '-' not in ports:
+            result_ports.append(int(ports))
+            continue
+        sp, ep = ports.split('-')
+        for port in range(int(sp), int(ep)+1):
+            result_ports.append(port)
+
+    result_ports.sort()
+    area_ips = []
+    for i in range(0, len(result_ports), port_len):
+        ps = result_ports[i: i + port_len]
+        if -5 < ps[-1] - ps[0] - 100 < 5:
+            area_ips.append('{}-{}'.format(ps[0], ps[-1]))
+        else:
+            area_ips.append(','.join(list(map(str, ps))))
+
+    return area_ips
+
+
 def ip_port_survival_scan(targets, conn_redis, ports_str):
     """ip端口存活判断
 
@@ -428,7 +451,7 @@ t
     Returns:
         无
     """
-    my_scan = IpMasscan('--wait 60 --rate 8000')
+    my_scan = IpMasscan('--wait 30 --rate 8000')
     result_ip = []
     result_port = []
     mas_ips = []
@@ -437,18 +460,20 @@ t
         s = targets[i:i + 100]
         mas_ips.append(s)
 
+    area_ports = get_ports(ports_str)
     for ips in mas_ips:
-        if 'running' not in conn_redis.get_status():
-            return result_ip, result_port
-        logger.info('all task masscan content: [{}] --- [{}]'.format(ips, ports_str))
-        scan_ip, scan_port = my_scan.ip_scan(ips, ports_str)
-        logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
-        result_ip += scan_ip
-        result_port += scan_port
+        for area_port in area_ports:
+            if 'running' not in conn_redis.get_status():
+                return result_ip, result_port
+            logger.info('all task masscan content: [{}] --- [{}]'.format(ips, area_port))
+            scan_ip, scan_port = my_scan.ip_scan(ips, area_port)
+            logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
+            result_ip += scan_ip
+            result_port += scan_port
 
-        for ip in ips:
-            if ip not in scan_ip and ping(ip, timeout=2):
-                result_ip.append(ip)
+    for ip in targets:
+        if ip not in result_ip and ping(ip, timeout=2):
+            result_ip.append(ip)
 
     return result_ip, result_port
 
