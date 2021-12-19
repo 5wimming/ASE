@@ -7,12 +7,7 @@ from simpleui.admin import AjaxAdmin
 from django_redis import get_redis_connection
 from ASE import settings
 import logging
-import os
-import importlib
-import requests
-import json
 from . import tasks
-from . import update_cve
 
 logger = logging.getLogger("mdjango")
 conn_redis = get_redis_connection('default')
