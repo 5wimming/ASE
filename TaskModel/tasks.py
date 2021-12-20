@@ -461,8 +461,9 @@ t
         mas_ips.append(s)
 
     area_ports = get_ports(ports_str)
-    for ips in mas_ips:
-        for area_port in area_ports:
+
+    for area_port in area_ports:
+        for ips in mas_ips:
             if 'running' not in conn_redis.get_status():
                 return result_ip, result_port
             logger.info('all task masscan content: [{}] --- [{}]'.format(ips, area_port))
@@ -518,7 +519,7 @@ def get_ip_port(queryset, task_query, conn_redis):
         except Exception as e:
             queryset.update(status='File parsing error')
             logger.error('code 0614 - {}'.format(e))
-    ips_text = ips_text.replace('\r', ',').replace('\n', ',').replace(';', ',')
+    ips_text = ips_text.replace('\r', ',').replace('\n', ',').replace(';', ',').replace(',,', ',')
     for ip in ips_text.split(','):
         if ip:
             if '-' in ip or '/' in ip:
