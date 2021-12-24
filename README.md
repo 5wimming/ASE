@@ -1,3 +1,14 @@
+## 更新
+
+
+### 20211216
+1、优化masscan扫描方式，小批量扫描发现更多存活端口
+
+### 20211208
+1、增加了celery异步处理
+
+2、增加了masscan快速预扫描
+
 ## 背景
 
 相信很多安全人员，经常会写一些验证性POC，而这些好东西用完经常就被放在了某个角落，想再用的时候又要翻半天，一直希望有一个比较好的开源扫描平台可以存放这些东西，供自己或者大家直接使用。
@@ -11,6 +22,11 @@ ASE是开源的，扫描的漏洞策略是可自行定制添加的；并且提�
 相对于nexpose、nessus等这类庞大的扫描器，我希望ASE未来只收纳几十到几百种高危可远程利用的扫描策略，诸如命令注入、反序列化、任意文件上传下载等这类可远程利用的漏洞。
 
 ASE目前采用masscan+nmap的端口扫描模式，在尽量保障准确性的同时加快扫描速度
+
+
+**注意**：内存需要大于4g，否则会boom
+
+
 ### ASE主要功能
 1、发现开放端口的服务，如协议、应用、版本等
 
@@ -62,7 +78,7 @@ nvd更新接口
 version: '2.2'
 services:
   ase:
-    image: new6ee/ase:1.8
+    image: new6ee/ase-dc:1.5
     ports:
       - "58088:8080"
     init: true
@@ -98,9 +114,28 @@ sudo apt-get install redis-server
 ```
 
 ### 安装masscan
+
+#### apt安装方式
+
 ```shell
 apt install masscan
 ```
+
+这种方式安装的masscan过老，有bug，建议直接通过git安装
+
+#### git安装方式
+
+```bash
+
+apt-get install clang git gcc make libpcap-dev
+git clone https://github.com/robertdavidgraham/masscan
+cd masscan
+make
+cd ..
+cp masscan/bin/masscan /bin
+
+```
+
 
 ### 依赖库安装
 
@@ -114,8 +149,10 @@ python3 -m pip install beautifulsoup4
 python3 -m pip install requests
 python3 -m pip install django-redis
 python3 -m pip install python-masscan
+python3 -m pip install ping3
 
-python3 -m pip Django==3.2.4 mysqlclient django-simpleui IPy django-import-export python-nmap beautifulsoup4 requests
+python3 -m pip install IPy django-import-export
+
 # 更新命令，没事别更新，会有不兼容的情况出现
 python3 -m pip install Django django-simpleui --upgrade
 ```
