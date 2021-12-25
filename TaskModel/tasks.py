@@ -22,7 +22,6 @@ from .masscan_task import IpMasscan
 from .redis_task import RedisController
 from bs4 import BeautifulSoup
 
-
 logger = logging.getLogger("mdjango")
 
 
@@ -377,12 +376,14 @@ def start_port_scan(task_query):
     task_ip, task_port = get_ip_port(queryset, task_query, conn_redis)
 
     random.shuffle(task_ip)
+    task_port = list(set(task_port))
+    task_ip = list(set(task_ip))
     task_port.sort()
 
     subtask_num = 0
     task_queue = queue.Queue()
     port_index = int(conn_redis.get_port())
-    port_len =len(task_port)
+    port_len = len(task_port)
     # my_scan = IpMasscan('--wait 3 --rate 5000')
     logger.info('scan content: [{}] --- [{}]'.format(task_ip, task_port))
     for i, port_value in enumerate(task_port):
@@ -390,7 +391,7 @@ def start_port_scan(task_query):
             continue
         conn_redis_status = conn_redis.get_status()
         conn_redis.set_port(i)
-        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i/port_len))
+        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len))
         if 'end' in conn_redis_status or 'suspend' in conn_redis_status:
             logger.info('port: [{}] - {}'.format(port_value, conn_redis_status))
             break
@@ -423,7 +424,7 @@ def get_ports(ports_str, port_len=100):
             result_ports.append(int(ports))
             continue
         sp, ep = ports.split('-')
-        for port in range(int(sp), int(ep)+1):
+        for port in range(int(sp), int(ep) + 1):
             result_ports.append(port)
 
     result_ports.sort()
@@ -438,22 +439,24 @@ def get_ports(ports_str, port_len=100):
     return area_ips
 
 
-def ip_port_survival_scan(targets, conn_redis, ports_str):
+def ip_port_survival_scan(queryset, task_query, targets, conn_redis, ports_str):
     """ip端口存活判断
 
     ip存活判断
-t
+
     Args:
         targets: ip数组.
         conn_redis: redis连接器
         ports_str: 扫描端口串
+        queryset: 数据库句柄
+        task_query: 正在运行的任务
 
     Returns:
         无
     """
     my_scan = IpMasscan('--wait 30 --rate 8000')
-    result_ip = []
-    result_port = []
+    result_ip = set()
+    result_port = set()
     mas_ips = []
 
     for i in range(0, len(targets), 100):
@@ -461,22 +464,29 @@ t
         mas_ips.append(s)
 
     area_ports = get_ports(ports_str)
-
-    for area_port in area_ports:
+    port_len = len(area_ports)
+    for i, area_port in enumerate(area_ports):
+        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.8))
         for ips in mas_ips:
             if 'running' not in conn_redis.get_status():
-                return result_ip, result_port
+                return list(result_ip), list(result_port)
             logger.info('all task masscan content: [{}] --- [{}]'.format(ips, area_port))
-            scan_ip, scan_port = my_scan.ip_scan(ips, area_port)
-            logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
-            result_ip += scan_ip
-            result_port += scan_port
+            try:
+                scan_ip, scan_port = my_scan.ip_scan(ips, area_port)
+                logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
+                result_ip |= scan_ip
+                result_port |= scan_port
+            except Exception as e:
+                logger.error('masscan error: {} --- {} --- {}'.format(e,
+                                                                      e.__traceback__.tb_lineno,
+                                                                      e.__traceback__.tb_frame.f_globals[
+                                                                          "__file__"]))
 
     for ip in targets:
         if ip not in result_ip and ping(ip, timeout=2):
-            result_ip.append(ip)
+            result_ip.add(ip)
 
-    return result_ip, result_port
+    return list(result_ip), list(result_port)
 
 
 def get_ip_port(queryset, task_query, conn_redis):
@@ -494,7 +504,8 @@ def get_ip_port(queryset, task_query, conn_redis):
 
     """
     task_port = []
-    ports_str = task_query['port'].replace('\r', ',').replace('\n', ',').replace('\t', ',').replace(';', ',').replace(',,', ',')
+    ports_str = task_query['port'].replace('\r', ',').replace('\n', ',').replace('\t', ',').replace(';', ',').replace(
+        ',,', ',')
     ports = ports_str.split(',')
     for port in ports:
         if port:
@@ -528,7 +539,7 @@ def get_ip_port(queryset, task_query, conn_redis):
             else:
                 task_ip.append(ip.strip())
     if len(task_port) > 20:
-        task_ip, task_port = ip_port_survival_scan(task_ip, conn_redis, ports_str)
+        task_ip, task_port = ip_port_survival_scan(queryset, task_query, task_ip, conn_redis, ports_str)
 
     return task_ip, task_port
 
