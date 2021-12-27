@@ -90,7 +90,7 @@ class IpMasscan:
             ports = ports_str
         result_ip = set()
         result_port = set()
-        for i in range(2):
+        for i in range(1):
             try:
                 scan_result = self.masscan.scan('"{}"'.format(','.join(targets)),
                                                 ports=ports,
@@ -107,9 +107,7 @@ class IpMasscan:
                         result_port.add(port_temp)
 
                 time.sleep(1)
-                random.shuffle(targets)
             except Exception as e:
-                random.shuffle(targets)
                 logger.error('{} --- {} --- {}'.format(e,
                                                        e.__traceback__.tb_lineno,
                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
