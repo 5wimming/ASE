@@ -71,7 +71,7 @@ class IpMasscan:
 
         return list(results)
 
-    def ip_scan(self, targets, ports_str):
+    def ip_scan(self, targets, ports_str, result_ip_port):
         """ip存活扫描
 
         ip存活扫描
@@ -79,6 +79,7 @@ class IpMasscan:
         Args:
             targets: ip.
             ports_str: 端口数据
+            result_ip_port: ip端口字典
 
         Returns:
             无
@@ -88,8 +89,6 @@ class IpMasscan:
                 '5900,8080,8081,9101,9080,18080,28080,37111,37112,37113,37114,37115,37116,37117,37118,37119'
         if ports_str:
             ports = ports_str
-        result_ip = set()
-        result_port = set()
         for i in range(1):
             try:
                 scan_result = self.masscan.scan('"{}"'.format(','.join(targets)),
@@ -99,12 +98,13 @@ class IpMasscan:
                 for ip, value in scan_ips.items():
                     logger.info('subtask masscan result: [{}] --- [{}]'.format(ip, value))
                     value_dict = value.get('tcp', {})
-                    if len(value_dict.items()) > 30:
+                    if len(value_dict.items()) > 30 or len(value_dict.items()) < 1:
                         continue
 
-                    result_ip.add(ip)
-                    for port_temp in value_dict.keys():
-                        result_port.add(port_temp)
+                    if ip not in result_ip_port:
+                        result_ip_port[ip] = set(value_dict.keys())
+                    else:
+                        result_ip_port[ip] |= set(value_dict.keys())
 
                 time.sleep(1)
             except Exception as e:
@@ -113,8 +113,6 @@ class IpMasscan:
                                                        e.__traceback__.tb_frame.f_globals["__file__"]))
             finally:
                 pass
-
-        return result_ip, result_port
 
 
 if __name__ == '__main__':

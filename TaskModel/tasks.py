@@ -155,9 +155,9 @@ def thread_process_func(task_queue, result_queue, task_proto, strategies, vuln_q
 
         url_info = {}
         if 'http' in service_names:
-            url_info = get_url_info('http://' + ip_port + '/')
+            url_info = get_url_info('https://' + ip_port + '/')
             if not url_info:
-                url_info = get_url_info('https://' + ip_port + '/')
+                url_info = get_url_info('http://' + ip_port + '/')
 
         if url_info:
             url_info['ip'] = ip
@@ -391,7 +391,7 @@ def start_port_scan(task_query):
             continue
         conn_redis_status = conn_redis.get_status()
         conn_redis.set_port(i)
-        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len))
+        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.2 + 0.6))
         if 'end' in conn_redis_status or 'suspend' in conn_redis_status:
             logger.info('port: [{}] - {}'.format(port_value, conn_redis_status))
             break
@@ -454,9 +454,10 @@ def ip_port_survival_scan(queryset, task_query, targets, conn_redis, ports_str):
     Returns:
         无
     """
-    my_scan = IpMasscan('--wait 30 --rate 8000')
+    my_scan = IpMasscan('--wait 15 --rate 8000')
     result_ip = set()
     result_port = set()
+    result_ip_port = {}
     mas_ips = []
 
     for i in range(0, len(targets), 100):
@@ -466,21 +467,24 @@ def ip_port_survival_scan(queryset, task_query, targets, conn_redis, ports_str):
     area_ports = get_ports(ports_str)
     port_len = len(area_ports)
     for i, area_port in enumerate(area_ports):
-        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.8))
+        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.6))
         for ips in mas_ips:
             if 'running' not in conn_redis.get_status():
                 return list(result_ip), list(result_port)
             logger.info('all task masscan content: [{}] --- [{}]'.format(ips, area_port))
             try:
-                scan_ip, scan_port = my_scan.ip_scan(ips, area_port)
-                logger.info('all task masscan result: [{}] --- [{}]'.format(scan_ip, scan_port))
-                result_ip |= scan_ip
-                result_port |= scan_port
+                my_scan.ip_scan(ips, area_port, result_ip_port)
+
             except Exception as e:
                 logger.error('masscan error: {} --- {} --- {}'.format(e,
                                                                       e.__traceback__.tb_lineno,
                                                                       e.__traceback__.tb_frame.f_globals[
                                                                           "__file__"]))
+    for ip, ports in result_ip_port.items():
+        # 超参数，一个ip超过50个端口就舍去
+        if len(ports) < 50:
+            result_ip.add(ip)
+            result_port |= ports
 
     for ip in targets:
         if ip not in result_ip and ping(ip, timeout=2):
