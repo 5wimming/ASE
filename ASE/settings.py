@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-40#$#^#=(zhj6h=ugw4u#k^a0gie(k3q(t5z=6)+&lv#uyy=g1'
 
 # prod False; beta True
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -238,6 +238,7 @@ LOGGING = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SIMPLEUI_INDEX = '/ase'
 STRATEGY_TOOLS_PATH = 'StrategyTools/'
+PASSWD_INFO_PATH = 'StrategyTools/info/'
 SIMPLEUI_HOME_INFO = False
 SIMPLEUI_ANALYSIS = False
 SUBTASK_NUM = 5000
