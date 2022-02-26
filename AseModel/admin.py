@@ -129,7 +129,7 @@ class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
 
 class ScanWebResource(resources.ModelResource):
     class Meta:
-        model = ScanPort
+        model = ScanWeb
 
 
 class ScanWebAdmin(ImportExportModelAdmin, AjaxAdmin):
