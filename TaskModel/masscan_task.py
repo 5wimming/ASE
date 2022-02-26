@@ -98,7 +98,7 @@ class IpMasscan:
                 for ip, value in scan_ips.items():
                     logger.info('subtask masscan result: [{}] --- [{}]'.format(ip, value))
                     value_dict = value.get('tcp', {})
-                    if len(value_dict.items()) > 30 or len(value_dict.items()) < 1:
+                    if len(value_dict.items()) < 1:
                         continue
 
                     if ip not in result_ip_port:
