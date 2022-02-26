@@ -18,53 +18,12 @@ import importlib
 import requests
 from ping3 import ping
 from . import nmap_task
+from . import web_crawler
 from .masscan_task import IpMasscan
 from .redis_task import RedisController
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger("mdjango")
-
-
-def get_url_info(url):
-    request_headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:60.0) Ase/20160606 Firefox/60.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Connection': 'close',
-        'Cookie': 'rememberMe=ase',
-        'X-Originating-IP': '127.0.0.1',
-        'X-Client-IP': '127.0.0.1',
-        'X-Forwarded-For': '127.0.0.1'
-    }
-    try:
-        r = requests.get(url, headers=request_headers, timeout=2, verify=False)
-        origin_title = ''
-
-        try:
-            soup = BeautifulSoup(r.content.decode("utf-8", "replace"), 'html.parser')
-            origin_title = soup.title if soup.title else "none"
-            origin_title = str(urllib.parse.unquote(origin_title, encoding='utf-8')).replace("\n", " ").replace("\r",
-                                                                                                                " ") \
-                .replace("\t", " ").replace("<title>", " ").replace("</title>", " ").strip()
-        except Exception as e:
-            logger.error('code 0627003 - {}'.format(e))
-
-        headers = str(r.headers)
-
-        result = {
-            'url': url,
-            'title': origin_title,
-            'status': r.status_code,
-            'headers': headers,
-            'body_size': len(r.text),
-            'body_content': r.text[0:5000],
-            'application': 'shiro' if 'rememberMe=deleteMe' in headers else '',
-            'redirect_url': r.url
-        }
-        return result
-    except Exception as e:
-        logger.error('code 0625005 - {}'.format(e))
-    return {}
 
 
 def fun_version(v1, v2):
@@ -128,20 +87,20 @@ def get_nvd_vuln(vendor, application, version):
 
 
 def thread_process_func(task_queue, result_queue, task_proto, strategies, vuln_queue, web_queue):
-    for i_scan in range(65535000000):
+    for i_scan in range(settings.SUBTASK_NUM + 100):
         try:
-            try:
-                target = task_queue.get_nowait()
-                ip = target[0]
-                port = target[1]
-                ip_port = '{}:{}'.format(ip, port)
-            except queue.Empty:
-                logger.info('{} Task done'.format(threading.current_thread().name))
-                result_queue.put_nowait('Task done')
-                vuln_queue.put_nowait('Task done')
-                web_queue.put_nowait('Task done')
-                break
+            target = task_queue.get_nowait()
+            ip = target[0]
+            port = target[1]
+            ip_port = '{}:{}'.format(ip, port)
+        except queue.Empty:
+            logger.info('{} Task done'.format(threading.current_thread().name))
+            result_queue.put_nowait('Task done')
+            vuln_queue.put_nowait('Task done')
+            web_queue.put_nowait('Task done')
+            break
 
+        try:
             logger.info('{} - [{}] - {}'.format(threading.current_thread().name, task_queue.qsize(), ip_port))
             result = nmap_task.main(ip_port, port_type=task_proto)
             if result:
@@ -150,14 +109,13 @@ def thread_process_func(task_queue, result_queue, task_proto, strategies, vuln_q
                 continue
         except Exception as e:
             logger.error('code 0626001 - {} - {}'.format(threading.current_thread().name, e))
+            continue
 
         service_names = result['service_name'].lower()
 
         url_info = {}
         if 'http' in service_names:
-            url_info = get_url_info('https://' + ip_port + '/')
-            if not url_info:
-                url_info = get_url_info('http://' + ip_port + '/')
+            url_info = web_crawler.main('https://' + ip_port + '/')
 
         if url_info:
             url_info['ip'] = ip
@@ -182,11 +140,14 @@ def thread_process_func(task_queue, result_queue, task_proto, strategies, vuln_q
         for s in strategies:
             try:
                 strategy_flag = False
-                if any(item.lower() in service_names and item.strip() for item in s['service_name'].split(',')):
+                # 下沉策略，表示不管是什么协议交由poc决策
+                if 'all-poc' in s['service_name'] and service_names:
                     strategy_flag = True
-                if any(item.lower() in service_names and item.strip() for item in s['application'].split(',')):
+                elif any(item.lower() in service_names and item.strip() for item in s['service_name'].split(',')):
                     strategy_flag = True
-                if port in s['port'].split(','):
+                elif any(item.lower() in service_names and item.strip() for item in s['application'].split(',')):
+                    strategy_flag = True
+                elif port in s['port'].split(','):
                     strategy_flag = True
 
                 if strategy_flag:
@@ -207,14 +168,14 @@ def thread_process_func(task_queue, result_queue, task_proto, strategies, vuln_q
                 logger.error('code 0620002 - {}'.format(e))
 
 
-def thread_port_result(result_queue, task_threads_count, task_name, task_proto, task_key):
+def thread_port_result(result_queue, task_threads_count, task_name, task_proto, task_num):
     logger.info('{} - ports start saving'.format(task_name))
     thread_done_total = 0
     result_total = 0
     try:
-        for i_scan in range(65535000000):
+        for i_scan in range(task_num + 60):
             try:
-                result = result_queue.get(timeout=7200)  # one day
+                result = result_queue.get(timeout=60)
                 result_total += 1
 
                 if result == 'Task done':
@@ -247,15 +208,15 @@ def thread_port_result(result_queue, task_threads_count, task_name, task_proto, 
                                                 e.__traceback__.tb_frame.f_globals["__file__"]))
 
 
-def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
+def thread_vuln_result(result_queue, task_threads_count, task_name, task_num):
     logger.info('{} - vulns start saving'.format(task_name))
     thread_done_total = 0
     result_total = 0
     try:
 
-        for i_scan in range(65535000000):
+        for i_scan in range(task_num + 60):
             try:
-                result = result_queue.get(timeout=7200)
+                result = result_queue.get(timeout=60)
                 result_total += 1
 
                 if result == 'Task done':
@@ -282,14 +243,14 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_key):
         logging.error('code 0620006 - {} - {}'.format(threading.current_thread().name, e))
 
 
-def thread_web_info_result(result_queue, task_threads_count, task_name, task_key):
+def thread_web_info_result(result_queue, task_threads_count, task_name, task_num):
     logger.info('{} - web start saving'.format(task_name))
     thread_done_total = 0
     result_total = 0
     try:
-        for i_scan in range(65535000000):
+        for i_scan in range(task_num + 60):
             try:
-                result = result_queue.get(timeout=7200)
+                result = result_queue.get(timeout=60)
                 result_total += 1
 
                 if result == 'Task done':
@@ -389,13 +350,9 @@ def start_port_scan(task_query):
     for i, port_value in enumerate(task_port):
         if i < port_index:
             continue
-        conn_redis_status = conn_redis.get_status()
-        conn_redis.set_port(i)
-        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.2 + 0.6))
-        if 'end' in conn_redis_status or 'suspend' in conn_redis_status:
-            logger.info('port: [{}] - {}'.format(port_value, conn_redis_status))
-            break
-        time.sleep(0.5)
+
+        if i % 100 == 0:
+            pass
         # survival_task_ip = my_scan.port_scan(task_ip, port_value)
         for ip_i in task_ip:
             subtask_num += 1
@@ -403,6 +360,16 @@ def start_port_scan(task_query):
             if subtask_num == settings.SUBTASK_NUM:
                 begin_scan(strategies, task_query, task_queue)
                 logger.info('subtask [{}:{}] - finished'.format(ip_i, port_value))
+                queryset.filter(id=task_query['id']).update(
+                    progress='{:.1%} completed'.format(i / port_len * 0.5 + 0.5))
+                time.sleep(0.5)
+
+                conn_redis_status = conn_redis.get_status()
+                conn_redis.set_port(i)
+                if 'end' in conn_redis_status or 'suspend' in conn_redis_status:
+                    logger.info('port: [{}] - {}'.format(port_value, conn_redis_status))
+                    return
+
                 subtask_num = 0
 
     if task_queue.qsize() > 0:
@@ -416,30 +383,26 @@ def start_port_scan(task_query):
     logger.info('{} - end running'.format(task_query['task_name']))
 
 
-def get_ports(ports_str, port_len=100):
-    scan_ports = ports_str.split(',')
-    result_ports = []
-    for ports in scan_ports:
-        if '-' not in ports:
-            result_ports.append(int(ports))
-            continue
-        sp, ep = ports.split('-')
-        for port in range(int(sp), int(ep) + 1):
-            result_ports.append(port)
+def get_ports(task_port, port_len=20):
+    area_ports = []
+    task_port = list(map(int, task_port))
+    task_port.sort()
+    port_len = int(1500 / port_len)
 
-    result_ports.sort()
-    area_ips = []
-    for i in range(0, len(result_ports), port_len):
-        ps = result_ports[i: i + port_len]
-        if -5 < ps[-1] - ps[0] - 100 < 5:
-            area_ips.append('{}-{}'.format(ps[0], ps[-1]))
+    for i in range(0, len(task_port), port_len):
+        ps = task_port[i: i + port_len]
+        if -5 < ps[-1] - ps[0] - len(ps) < 5:
+            area_ports.append('{}-{}'.format(ps[0], ps[-1]))
         else:
-            area_ips.append(','.join(list(map(str, ps))))
+            if len(ps) < 5:
+                area_ports[-1] = '{},{}'.format(area_ports[-1], ','.join(list(map(str, ps))))
+                continue
+            area_ports.append(','.join(list(map(str, ps))))
 
-    return area_ips
+    return area_ports
 
 
-def ip_port_survival_scan(queryset, task_query, targets, conn_redis, ports_str):
+def ip_port_survival_scan(queryset, task_query, targets, conn_redis, task_port):
     """ip端口存活判断
 
     ip存活判断
@@ -447,27 +410,28 @@ def ip_port_survival_scan(queryset, task_query, targets, conn_redis, ports_str):
     Args:
         targets: ip数组.
         conn_redis: redis连接器
-        ports_str: 扫描端口串
+        task_port: 扫描端口数组
         queryset: 数据库句柄
         task_query: 正在运行的任务
 
     Returns:
         无
     """
-    my_scan = IpMasscan('--wait 15 --rate 8000')
+    my_scan = IpMasscan('--wait 5 --rate 10000')
     result_ip = set()
     result_port = set()
     result_ip_port = {}
     mas_ips = []
 
-    for i in range(0, len(targets), 100):
-        s = targets[i:i + 100]
+    for i in range(0, len(targets), 70):
+        s = targets[i:i + 70]
         mas_ips.append(s)
 
-    area_ports = get_ports(ports_str)
+    area_ports = get_ports(task_port, len(mas_ips[0]))
+
     port_len = len(area_ports)
     for i, area_port in enumerate(area_ports):
-        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.6))
+        queryset.filter(id=task_query['id']).update(progress='{:.1%} completed'.format(i / port_len * 0.5))
         for ips in mas_ips:
             if 'running' not in conn_redis.get_status():
                 return list(result_ip), list(result_port)
@@ -542,10 +506,10 @@ def get_ip_port(queryset, task_query, conn_redis):
                     task_ip.append(str(ip_temp))
             else:
                 task_ip.append(ip.strip())
-    if len(task_port) > 20:
-        task_ip, task_port = ip_port_survival_scan(queryset, task_query, task_ip, conn_redis, ports_str)
+    if len(task_port)*len(task_ip) > settings.SUBTASK_NUM:
+        task_ip, task_port = ip_port_survival_scan(queryset, task_query, task_ip, conn_redis, task_port)
 
-    return task_ip, task_port
+    return task_ip, list(map(str, task_port))
 
 
 def begin_scan(strategies, task_query, task_queue):
@@ -566,6 +530,7 @@ def begin_scan(strategies, task_query, task_queue):
     task_threads_count = task_query['threads_count']
 
     task_key = str(task_query['id'])
+    task_num = task_queue.qsize()
 
     result_queue = queue.Queue()
     vuln_queue = queue.Queue()
@@ -579,16 +544,16 @@ def begin_scan(strategies, task_query, task_queue):
     logger.info('{} - saving'.format(task_query['task_name']))
     port_result_thread = threading.Thread(target=thread_port_result, args=(result_queue, task_threads_count,
                                                                            task_query['task_name'], task_proto,
-                                                                           task_key),
+                                                                           task_num),
                                           name='port result thread')
     port_result_thread.start()
     vuln_result_thread = threading.Thread(target=thread_vuln_result, args=(vuln_queue, task_threads_count,
-                                                                           task_query['task_name'], task_key),
+                                                                           task_query['task_name'], task_num),
                                           name='vuln result thread')
     vuln_result_thread.start()
     web_info_result_thread = threading.Thread(target=thread_web_info_result,
                                               args=(web_queue, task_threads_count,
-                                                    task_query['task_name'], task_key),
+                                                    task_query['task_name'], task_num),
                                               name='vuln result thread')
     web_info_result_thread.start()
     logger.info('{} - start running'.format(task_query['task_name']))
