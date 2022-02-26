@@ -63,11 +63,11 @@ def weak_password_scan(target_info, password):
 def main(target_info, *args):
     try:
         if unauthorized_access_scan(target_info):
-            return True
+            return 'redis_unauthorized_access'
         else:
             for password in weakly_passwords:
                 if weak_password_scan(target_info, password):
-                    return True
+                    return 'redis_unauthorized_access'
     except Exception as e:
         pass
 
