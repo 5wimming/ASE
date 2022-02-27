@@ -1,5 +1,11 @@
 ## 更新
 
+### 20220226
+1、优化masscan端口发现能力
+
+2、增加爬虫识别web组件
+
+3、增加mysql、ssh、ftp、telnet等几十种协议的爆破功能（会导致扫描速度慢，并且存在弱口令爆破攻击行为，禁止用于扫描他人资产）
 
 ### 20211216
 1、优化masscan扫描方式，小批量扫描发现更多存活端口
@@ -78,7 +84,7 @@ nvd更新接口
 version: '2.2'
 services:
   ase:
-    image: new6ee/ase-dc:2.2
+    image: new6ee/ase-dc:2.3
     ports:
       - "58088:8080"
     init: true
@@ -111,6 +117,12 @@ Ase5scan.
 
 ```java
 sudo apt-get install redis-server
+```
+
+### hydra安装
+
+```java
+sudo apt-get install hydra
 ```
 
 ### 安装masscan
@@ -150,6 +162,7 @@ python3 -m pip install requests
 python3 -m pip install django-redis
 python3 -m pip install python-masscan
 python3 -m pip install ping3
+pyton3 -m pip install python-Wappalyzer==0.3.1
 
 python3 -m pip install IPy django-import-export
 
