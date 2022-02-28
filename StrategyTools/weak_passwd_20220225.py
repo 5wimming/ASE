@@ -85,6 +85,6 @@ def main(target_info, *args):
 
 
 if __name__ == '__main__':
-    target = {'ip': '185.1.68.2', 'port': '22', 'service': 'ssh',
+    target = {'ip': '185.1.33.2', 'port': '22', 'service': 'ssh',
               'application': 'jenkins', 'url': 'http://192.168.31.8:6024/'}
     print(main(target))
