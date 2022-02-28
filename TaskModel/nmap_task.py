@@ -2,12 +2,13 @@ import nmap
 
 
 def main(target_port, port_type='TCP'):
-
     target = target_port.split(':')[0]
     port = int(target_port.split(':')[1])
 
-    white_list = ["java-rmi", "Ftp", "Ssh", "Sftp", "Telnet", "Tftp", "Rpc", "Netbios", "Xmanager", "Xwin", "Ldap", "Rlogin", "SQL", "Oracle", "Rdp", "Remoteadmin", "X11", "TCP_Napster_directory_8888_primary", "DB2", "GaussDB", "essbase", "oracle-tns", "mysql", "sybase", "sybasedbsynch", "sybasesrvmon", "postgresql", "redis", "mongodb", "SAP HANA", "hbase", "HBase-managed", "Hive"]
-    white_list = [item.lower() for item in white_list]
+    white_list = ['java-rmi', 'ftp', 'ssh', 'sftp', 'telnet', 'tftp', 'rpc', 'netbios', 'xmanager', 'xwin', 'ldap',
+                  'rlogin', 'sql', 'oracle', 'rdp', 'remoteadmin', 'x11', 'tcp_napster_directory_8888_primary', 'db2',
+                  'gaussdb', 'essbase', 'oracle-tns', 'mysql', 'sybase', 'sybasedbsynch', 'sybasesrvmon', 'postgresql',
+                  'redis', 'mongodb', 'sap hana', 'hbase', 'hbase-managed', 'hive']
 
     port_type = 'TCP' if port_type.upper() not in ['TCP', 'UDP'] else port_type
 
@@ -23,8 +24,9 @@ def main(target_port, port_type='TCP'):
                                      ports='{}:{}'.format('U' if port_type.upper() == 'UDP' else 'T', port),
                                      arguments=nmap_args)
         try:
-            port_info = scan_result['scan'].get(target, {})
+            port_info = scan_result['scan'][target]
         except Exception as e:
+            print(e)
             domain_ip = list(scan_result['scan'].keys())[0]
             port_info = scan_result['scan'].get(domain_ip, {})
 
@@ -41,7 +43,7 @@ def main(target_port, port_type='TCP'):
         result_data['application'] = port_type_info.get('product', '')
         result_data['extra_info'] = port_type_info.get('extrainfo', '')
         result_data['cpe'] = port_type_info.get('cpe', 'cpe:/n:unknown:unknown')
-        result_data['vendor'] = result_data['cpe'].split(':')[2]
+        result_data['vendor'] = (result_data['cpe'] + '::::').split(':')[2]
 
         application_temp = result_data['application'].lower()
         if any(item in application_temp for item in white_list):
@@ -51,11 +53,12 @@ def main(target_port, port_type='TCP'):
 
         return result_data
     except Exception as e:
-        print(e)
+        print(e,
+              e.__traceback__.tb_lineno,
+              e.__traceback__.tb_frame.f_globals["__file__"])
         pass
     return None
 
 
 if __name__ == '__main__':
-    # print(nmap.__version__)
-    print(main('www.baidu.com:443', port_type='TCP'))
+    print(main('1.112.2.229:443', port_type='TCP'))
