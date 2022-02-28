@@ -197,7 +197,6 @@ def thread_port_result(result_queue, task_threads_count, task_name, task_proto, 
                 logging.error('{} --- {} --- {}'.format(e,
                                                         e.__traceback__.tb_lineno,
                                                         e.__traceback__.tb_frame.f_globals["__file__"]))
-                break
             except Exception as e:
                 logging.error('{} --- {} --- {}'.format(e,
                                                         e.__traceback__.tb_lineno,
@@ -236,7 +235,6 @@ def thread_vuln_result(result_queue, task_threads_count, task_name, task_num):
                 logging.error('{} --- {} --- {}'.format(e,
                                                         e.__traceback__.tb_lineno,
                                                         e.__traceback__.tb_frame.f_globals["__file__"]))
-                break
             except Exception as e:
                 logging.error('code 0620005 - {} - {}'.format(threading.current_thread().name, e))
     except Exception as e:
@@ -272,7 +270,6 @@ def thread_web_info_result(result_queue, task_threads_count, task_name, task_num
                 logging.error('{} --- {} --- {}'.format(e,
                                                         e.__traceback__.tb_lineno,
                                                         e.__traceback__.tb_frame.f_globals["__file__"]))
-                break
             except Exception as e:
                 logging.error('{} --- {} --- {}'.format(e,
                                                         e.__traceback__.tb_lineno,
@@ -445,8 +442,8 @@ def ip_port_survival_scan(queryset, task_query, targets, conn_redis, task_port):
                                                                       e.__traceback__.tb_frame.f_globals[
                                                                           "__file__"]))
     for ip, ports in result_ip_port.items():
-        # 超参数，一个ip超过50个端口就舍去
-        if len(ports) < 50:
+        # 超参数，一个ip超过100个端口就舍去
+        if len(ports) < 100:
             result_ip.add(ip)
             result_port |= ports
 
