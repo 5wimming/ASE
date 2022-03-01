@@ -87,7 +87,7 @@ nvd更新接口
 version: '2.2'
 services:
   ase:
-    image: new6ee/ase-dc:2.5
+    image: new6ee/ase-dc:2.6
     ports:
       - "58088:8080"
     init: true
