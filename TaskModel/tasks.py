@@ -442,9 +442,9 @@ def ip_port_survival_scan(queryset, task_query, targets, conn_redis, task_port):
                                                                       e.__traceback__.tb_frame.f_globals[
                                                                           "__file__"]))
     for ip, ports in result_ip_port.items():
-        # 超参数，一个ip超过100个端口就舍去
-        if len(ports) < 100:
-            result_ip.add(ip)
+        # 超参数，一个ip超过200个端口就舍去
+        result_ip.add(ip)
+        if len(ports) < 200:
             result_port |= ports
 
     for ip in targets:
