@@ -106,7 +106,7 @@ class IpMasscan:
                     else:
                         result_ip_port[ip] |= set(value_dict.keys())
 
-                time.sleep(1)
+                time.sleep(0.5)
             except Exception as e:
                 logger.error('{} --- {} --- {}'.format(e,
                                                        e.__traceback__.tb_lineno,
