@@ -241,7 +241,7 @@ STRATEGY_TOOLS_PATH = 'StrategyTools/'
 PASSWD_INFO_PATH = 'StrategyTools/info/'
 SIMPLEUI_HOME_INFO = False
 SIMPLEUI_ANALYSIS = False
-SUBTASK_NUM = 5000
+SUBTASK_NUM = 200
 
 # celery配置
 beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"

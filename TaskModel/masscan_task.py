@@ -19,105 +19,71 @@ class IpMasscan:
         self.masscan_args = masscan_args
         self.masscan = masscan.PortScanner()
 
-    def port_scan(self, targets, port):
+    def port_scan(self, targets, ports):
         """端口存活扫描
 
         端口存活扫描
 
         Args:
             targets: ip数组.
-            port: 端口.
+            ports: 端口.
 
         Returns:
             无
         """
-        if len(targets) < 1:
-            return targets
+        result_ip_port = []
+        try:
+            scan_result = self.masscan.scan('"{}"'.format(','.join(targets)),
+                                            ports=ports,
+                                            arguments=self.masscan_args)
+            scan_ips = scan_result.get('scan', {})
+            for ip, value in scan_ips.items():
+                value_dict = value.get('tcp', {})
+                if len(value_dict.items()) < 1:
+                    continue
+                for port in value_dict.keys():
+                    result_ip_port.append(f'{ip}:{port}')
 
-        targets1 = []
-        targets2 = []
-        for i, value in enumerate(targets):
-            targets1.append(value)
-            if (i + 1) % 1000 == 0:
-                targets2.append(targets1)
-                targets1 = []
+            time.sleep(0.5)
+        except Exception as e:
+            logger.error('{} --- {} --- {}'.format(e,
+                                                   e.__traceback__.tb_lineno,
+                                                   e.__traceback__.tb_frame.f_globals["__file__"]))
+        finally:
+            pass
 
-        if targets1:
-            targets2.append(targets1)
+        return result_ip_port
 
-        results = set()
-        for targets in targets2:
-            for i in range(2):
-                scan_result = {}
-                random.shuffle(targets)
-                target_str = ','.join(targets)
-                try:
-                    scan_result = self.masscan.scan('"{}"'.format(target_str), ports=port,
-                                                    arguments=self.masscan_args)
-                    break
-                except Exception as e:
-                    logger.error('{} --- {} --- {}'.format(e,
-                                                           e.__traceback__.tb_lineno,
-                                                           e.__traceback__.tb_frame.f_globals["__file__"]))
-                finally:
-                    pass
-
-                scan_ips = scan_result.get('scan', {})
-                for ip, value in scan_ips.items():
-                    port_state = value.get('tcp', {}).get(int(port), {}).get('state', '')
-                    if 'open' in port_state:
-                        results.add(ip)
-                time.sleep(0.1)
-
-        return list(results)
-
-    def ip_scan(self, targets, ports_str, result_ip_port):
+    def ip_scan(self, targets):
         """ip存活扫描
 
         ip存活扫描
 
         Args:
-            targets: ip.
-            ports_str: 端口数据
-            result_ip_port: ip端口字典
+            targets: ip list
 
         Returns:
-            无
+            存活ip list
         """
-        # 40个
-        ports = '21,22,23,25,53,80,110,111,123,135,139,143,161,443,445,993,995,1080,1433,1434,1723,3128,3389,4750,' \
-                '5900,8080,8081,9101,9080,18080,28080,37111,37112,37113,37114,37115,37116,37117,37118,37119'
-        if ports_str:
-            ports = ports_str
-        for i in range(1):
-            try:
-                scan_result = self.masscan.scan('"{}"'.format(','.join(targets)),
-                                                ports=ports,
-                                                arguments=self.masscan_args)
-                scan_ips = scan_result.get('scan', {})
-                for ip, value in scan_ips.items():
-                    logger.info('subtask masscan result: [{}] --- [{}]'.format(ip, value))
-                    value_dict = value.get('tcp', {})
-                    if len(value_dict.items()) < 1:
-                        continue
+        # 15
+        ports = '21,22,23,25,53,80,161,443,445,1080,3306,3389,8080,8443,9101'
+        try:
+            scan_result = self.masscan.scan('"{}"'.format(','.join(targets)),
+                                            ports=ports,
+                                            arguments=self.masscan_args)
+            scan_ips = scan_result.get('scan', {})
+            result_ips = list(scan_ips.keys())
 
-                    if ip not in result_ip_port:
-                        result_ip_port[ip] = set(value_dict.keys())
-                    else:
-                        result_ip_port[ip] |= set(value_dict.keys())
-
-                time.sleep(0.5)
-            except Exception as e:
-                logger.error('{} --- {} --- {}'.format(e,
-                                                       e.__traceback__.tb_lineno,
-                                                       e.__traceback__.tb_frame.f_globals["__file__"]))
-            finally:
-                pass
+            return result_ips
+        except Exception as e:
+            logger.error('{} --- {} --- {}'.format(e,
+                                                   e.__traceback__.tb_lineno,
+                                                   e.__traceback__.tb_frame.f_globals["__file__"]))
+        return []
 
 
 if __name__ == '__main__':
-    my_scan = IpMasscan('--wait 15 --rate 10000')
+    my_scan = IpMasscan('--wait 5 --rate 10000')
     print(my_scan.ip_scan(
-        '129.204.131.185,129.204.131.237,129.204.131.245,129.204.131.99,129.204.131.117,129.204.131.158,129.204.131.166,129.204.131.102,129.204.131.28,129.204.131.233,129.204.131.80,129.204.131.37,129.204.131.231,129.204.131.210,129.204.131.69,129.204.131.44,129.204.131.167,129.204.131.54,129.204.131.160,129.204.131.144,129.204.131.151,129.204.131.182,129.204.131.107,129.204.131.82,129.204.131.170,129.204.131.206,129.204.131.201,129.204.131.73,129.204.131.141,129.204.131.154,129.204.131.11'.split(
-            ','),
-        '1-1024,1080,1433,1434,1723,3128,3389,4750,900,8080,8081,9101,9080'))
+        '10.10.10.10'.split(
+            ',')))
