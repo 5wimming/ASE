@@ -168,6 +168,7 @@ python3 -m pip install django-redis
 python3 -m pip install python-masscan
 python3 -m pip install ping3
 pyton3 -m pip install python-Wappalyzer==0.3.1
+pyton3 -m pip install multiping
 
 python3 -m pip install IPy django-import-export
 
