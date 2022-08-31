@@ -89,7 +89,7 @@ nvd更新接口
 version: '2.2'
 services:
   ase:
-    image: new6ee/ase-dc:2.6
+    image: new6ee/ase-dc:2.7
     ports:
       - "58088:8080"
     init: true
@@ -168,6 +168,7 @@ python3 -m pip install django-redis
 python3 -m pip install python-masscan
 python3 -m pip install ping3
 pyton3 -m pip install python-Wappalyzer==0.3.1
+pyton3 -m pip install multiping
 
 python3 -m pip install IPy django-import-export
 
