@@ -25,6 +25,7 @@ class ScanPortAdmin(ImportExportModelAdmin, AjaxAdmin):
     search_fields = ('ip', 'port', 'service_name', 'application', 'remarks')
     resource_class = ScanPortResource
     list_per_page = 20
+    export_filter_fields = ('ip', 'port', 'service_name', 'application', 'remarks')
 
     # 关闭按钮
     def has_add_permission(self, request):
@@ -80,6 +81,7 @@ class ScanVulnAdmin(ImportExportModelAdmin, AjaxAdmin):
     search_fields = ('ip', 'domain', 'port', 'vuln_desc', 'scan_time', 'scan_task')
     list_filter = ('scan_type',)
     resource_class = ScanVulnResource
+    export_filter_fields = ('ip', 'domain', 'port', 'vuln_desc', 'scan_time', 'scan_task')
     list_per_page = 20
 
     def has_add_permission(self, request):
@@ -137,6 +139,7 @@ class ScanWebAdmin(ImportExportModelAdmin, AjaxAdmin):
     search_fields = ("target", "port", "title", "headers", "body_content", "application", "scan_time", "scan_task")
     resource_class = ScanWebResource
     list_per_page = 20
+    export_filter_fields = ('target', 'port', 'title', 'headers', 'body_content', 'application', 'scan_time', 'scan_task')
 
     def has_add_permission(self, request):
         return False
